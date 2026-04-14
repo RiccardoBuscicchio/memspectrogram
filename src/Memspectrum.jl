@@ -253,8 +253,8 @@ function _fast_burg!(mesa::MESA, data::Vector, mmax::Int,
 
     verbose && println()
 
-    mesa.P   = real(P[idx])
-    mesa.a_k = real(a[idx])
+    mesa.P   = real(P[idx + 1])
+    mesa.a_k = real(a[idx + 1])
     mesa.optimization = optimization
     return mesa.P, mesa.a_k, optimization
 end
@@ -317,8 +317,8 @@ function _standard_burg!(mesa::MESA, data::Vector, mmax::Int,
 
     verbose && println()
 
-    mesa.P   = real(P[idx])
-    mesa.a_k = real(a_k[idx])
+    mesa.P   = real(P[idx + 1])
+    mesa.a_k = real(a_k[idx + 1])
     mesa.optimization = optimization
     return mesa.P, mesa.a_k, optimization
 end
