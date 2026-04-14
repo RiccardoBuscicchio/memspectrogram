@@ -681,33 +681,36 @@ function mesa_spectrogram(x::AbstractVector, dt::Float64;
     n_seg  = length(starts)
     n_seg >= 1 || error("Time series too short for the requested segment_length.")
 
-    # Build common one-sided frequency grid from the first segment
-    seg1 = x[starts[1] : starts[1] + segment_length - 1]
-    m1   = MESA()
-    solve!(m1, seg1; method=method, optimisation_method=optimisation_method,
-           verbose=false)
-    f_grid, psd1 = spectrum(m1, dt; onesided=true)
-    n_freq = length(f_grid)
+    # Deterministic one-sided frequency grid (depends only on segment_length and dt).
+    # Matches the grid returned by spectrum(...; onesided=true) for any segment of
+    # this length: f_k = k / (segment_length * dt),  k = 0, …, segment_length÷2 - 1.
+    n_freq = segment_length ÷ 2
+    f_grid = collect(0:n_freq-1) ./ (segment_length * dt)
 
     psd_matrix = Matrix{Float64}(undef, n_freq, n_seg)
-    psd_matrix[:, 1] = psd1
+    t_centers  = Vector{Float64}(undef, n_seg)
 
-    t_centers = Vector{Float64}(undef, n_seg)
-    t_centers[1] = (starts[1] - 1 + 0.5 * segment_length) * dt
+    # Lock used only for optional verbose output; the per-segment writes to
+    # psd_matrix and t_centers are safe because each iteration j touches a
+    # distinct column / index.
+    verbose_lock = ReentrantLock()
 
-    for (j, s) in enumerate(starts[2:end])
+    Threads.@threads for j in 1:n_seg
+        s   = starts[j]
         seg = x[s : s + segment_length - 1]
-        t_centers[j + 1] = (s - 1 + 0.5 * segment_length) * dt
-
-        verbose && print("\r  Segment $(j+1) / $n_seg")
+        t_centers[j] = (s - 1 + 0.5 * segment_length) * dt
 
         mj = MESA()
         solve!(mj, seg; method=method, optimisation_method=optimisation_method,
                verbose=false)
-        # Evaluate on the common frequency grid
-        psd_matrix[:, j + 1] = spectrum(mj, dt;
-                                        frequencies=collect(f_grid),
-                                        onesided=true)
+        _, psd_j = spectrum(mj, dt; onesided=true)
+        psd_matrix[:, j] = psd_j
+
+        if verbose
+            lock(verbose_lock) do
+                print("\r  Segment $j / $n_seg")
+            end
+        end
     end
     verbose && println()
 
