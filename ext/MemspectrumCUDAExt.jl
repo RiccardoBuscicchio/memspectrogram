@@ -143,7 +143,9 @@ function Memspectrum.mesa_spectrogram(x::AbstractVector, dt::Float64;
     psd_matrix = Matrix{Float64}(undef, n_freq, n_seg)
     t_centers  = Vector{Float64}(undef, n_seg)
 
-    # Use one CUDA stream per segment for concurrent kernel dispatch
+    # Use one CUDA stream per segment for concurrent kernel dispatch.
+    # 8 streams is a pragmatic upper bound: enough concurrency for most GPUs
+    # without excessive stream-management overhead.
     n_streams = min(n_seg, 8)
     streams   = [CuStream() for _ in 1:n_streams]
 
@@ -163,8 +165,8 @@ function Memspectrum.mesa_spectrogram(x::AbstractVector, dt::Float64;
         # Run FFT on GPU using the assigned stream
         stream = streams[mod1(j, n_streams)]
         CUDA.stream!(stream) do
-            a_gpu  = CuArray(ComplexF32.(mj.a_k))
-            padded = vcat(a_gpu, CUDA.zeros(ComplexF32,
+            a_k_gpu = CuArray(ComplexF32.(mj.a_k))
+            padded = vcat(a_k_gpu, CUDA.zeros(ComplexF32,
                                             segment_length - length(mj.a_k)))
             den    = CUFFT.fft(padded)
             spec   = Float32(dt * real(mj.P)) ./ abs2.(den)

@@ -62,7 +62,8 @@ using .Memspectrum
         @test psd1 == psd2
         @test length(f1) == N ÷ 2
         @test all(psd1 .> 0)
-        @test maximum(f1) < 0.5 / dt   # top bin is below Nyquist
+        # Top frequency bin should be just below Nyquist (f_ny = 0.5/dt)
+        @test maximum(f1) < 0.5 / dt
 
         # Peak should be near 50 Hz
         @test f1[argmax(psd1)] ≈ 50.0  atol=5.0
@@ -194,7 +195,11 @@ using .Memspectrum
         solve!(m, x; optimisation_method="FPE", method="Fast")
         f, psd = memspectrum(m, dt; onesided=true)
 
-        # The spectral peak should be within ±10 Hz of the true resonance
+        # The AR(2) resonance peak frequency is:
+        #   f_peak = arccos(-a1 / (2 * sqrt(a2))) / (2π * dt)
+        # See e.g. Kay, "Modern Spectral Estimation", eq. (8.39).
+        # MESA estimates can be off by a few Hz for finite data; ±10 Hz is
+        # a generous but realistic tolerance for N=4096 and high-noise AR(2).
         true_peak = acos(-a1 / (2 * sqrt(a2))) / (2π * dt)
         @test abs(f[argmax(psd)] - true_peak) < 10.0
     end
