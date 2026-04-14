@@ -25,7 +25,8 @@ using Interpolations
 using DelimitedFiles
 
 export MESA, solve!, spectrum, forecast, whiten, entropy_rate, logL,
-       generate_data, save_mesa, load_mesa
+       generate_data, save_mesa, load_mesa,
+       mesa_spectrogram, plot_spectrogram
 
 # ---------------------------------------------------------------------------
 # Loss functions
@@ -410,7 +411,7 @@ function spectrum(mesa::MESA, dt::Float64=1.0;
         if maximum(frequencies) > f_ny * 1.01
             @warn "Some requested frequencies exceed Nyquist ($f_ny Hz): returning zero PSD there."
         end
-        half = Int(mesa.N ÷ 2 + 0.5)
+        half = mesa.N ÷ 2
         f_interp = LinearInterpolation(f_spec[1:half], spec[1:half],
                                        extrapolation_bc=Flat())
         return f_interp.(clamp.(frequencies, f_spec[1], f_spec[half]))
@@ -628,4 +629,128 @@ function generate_data(f_arr::AbstractVector, psd_arr::AbstractVector, T::Float6
     return collect(times), time_series, frequencies, frequency_series, psd_at_f
 end
 
+# ---------------------------------------------------------------------------
+# MESA Spectrogram
+# ---------------------------------------------------------------------------
+
+"""
+    mesa_spectrogram(x, dt; segment_length, overlap=0.5,
+                     optimisation_method="FPE", method="Fast",
+                     verbose=false)
+
+Compute a MESA-based spectrogram by fitting an AR model on overlapping
+segments of `x` and collecting the resulting one-sided PSDs.
+
+# Arguments
+- `x`                   : input time series (real-valued `Vector`)
+- `dt`                  : sampling interval (seconds)
+- `segment_length`      : number of samples per segment
+- `overlap`             : fractional overlap between consecutive segments
+                          (0 = no overlap, 0.5 = 50 %, default 0.5)
+- `optimisation_method` : AR order-selection criterion passed to `solve!`
+                          (default `"FPE"`)
+- `method`              : Burg variant passed to `solve!`
+                          (default `"Fast"`)
+- `verbose`             : print per-segment progress (default `false`)
+
+# Returns
+`(t_centers, f_grid, psd_matrix)` where
+- `t_centers`  : vector of length `n_seg` with the time (in seconds) at the
+                 centre of each segment
+- `f_grid`     : one-sided frequency grid (Hz), length `n_freq`
+- `psd_matrix` : matrix of shape `(n_freq, n_seg)`; each column is the
+                 one-sided PSD of the corresponding segment
+"""
+function mesa_spectrogram(x::AbstractVector, dt::Float64;
+                          segment_length::Int,
+                          overlap::Float64=0.5,
+                          optimisation_method::String="FPE",
+                          method::String="Fast",
+                          verbose::Bool=false)
+    0.0 <= overlap < 1.0 ||
+        error("overlap must be in [0, 1).")
+    segment_length >= 4 ||
+        error("segment_length must be at least 4.")
+
+    x = Float64.(vec(x))
+    N  = length(x)
+    stride = max(1, round(Int, segment_length * (1.0 - overlap)))
+
+    starts = collect(1 : stride : N - segment_length + 1)
+    n_seg  = length(starts)
+    n_seg >= 1 || error("Time series too short for the requested segment_length.")
+
+    # Build common one-sided frequency grid from the first segment
+    seg1 = x[starts[1] : starts[1] + segment_length - 1]
+    m1   = MESA()
+    solve!(m1, seg1; method=method, optimisation_method=optimisation_method,
+           verbose=false)
+    f_grid, psd1 = spectrum(m1, dt; onesided=true)
+    n_freq = length(f_grid)
+
+    psd_matrix = Matrix{Float64}(undef, n_freq, n_seg)
+    psd_matrix[:, 1] = psd1
+
+    t_centers = Vector{Float64}(undef, n_seg)
+    t_centers[1] = (starts[1] - 1 + 0.5 * segment_length) * dt
+
+    for (j, s) in enumerate(starts[2:end])
+        seg = x[s : s + segment_length - 1]
+        t_centers[j + 1] = (s - 1 + 0.5 * segment_length) * dt
+
+        verbose && print("\r  Segment $(j+1) / $n_seg")
+
+        mj = MESA()
+        solve!(mj, seg; method=method, optimisation_method=optimisation_method,
+               verbose=false)
+        # Evaluate on the common frequency grid
+        psd_matrix[:, j + 1] = spectrum(mj, dt;
+                                        frequencies=collect(f_grid),
+                                        onesided=true)
+    end
+    verbose && println()
+
+    return t_centers, f_grid, psd_matrix
+end
+
+"""
+    plot_spectrogram(t_centers, f_grid, psd_matrix;
+                     title="MESA spectrogram", clim=nothing,
+                     size=(900, 500), dpi=150)
+
+Plot a MESA spectrogram as a heat-map with time on the x-axis and
+frequency on the y-axis (vertical).  Colour encodes `log10(PSD)`.
+
+# Arguments
+- `t_centers`  : time centres of each segment (seconds)
+- `f_grid`     : one-sided frequency grid (Hz)
+- `psd_matrix` : `(n_freq, n_seg)` matrix returned by `mesa_spectrogram`
+- `title`      : plot title (default `"MESA spectrogram"`)
+- `clim`       : optional `(lo, hi)` colour-axis limits in `log10` units
+- `size`       : figure size in pixels (default `(900, 500)`)
+- `dpi`        : figure DPI (default `150`)
+
+# Returns
+The `Plots.Plot` object.
+"""
+function plot_spectrogram(t_centers::AbstractVector, f_grid::AbstractVector,
+                          psd_matrix::AbstractMatrix;
+                          title::String="MESA spectrogram",
+                          clim::Union{Tuple{<:Real,<:Real}, Nothing}=nothing,
+                          size::Tuple{Int,Int}=(900, 500),
+                          dpi::Int=150)
+    log_psd = log10.(max.(psd_matrix, 1e-300))   # avoid log(0)
+
+    kw = (xlabel="Time (s)", ylabel="Frequency (Hz)",
+          title=title, colorbar_title="log₁₀ PSD",
+          size=size, dpi=dpi)
+
+    if clim !== nothing
+        return heatmap(t_centers, f_grid, log_psd; clims=clim, kw...)
+    else
+        return heatmap(t_centers, f_grid, log_psd; kw...)
+    end
+end
+
 end # module
+
