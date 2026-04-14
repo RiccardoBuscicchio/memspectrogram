@@ -1,0 +1,10 @@
+# Configuration for examples/generate_white_noise.jl
+#
+# Usage:
+#   julia --project=. examples/generate_white_noise.jl \
+#       --config examples/configs/generate_white_noise.toml
+
+p     = 300      # autoregressive order
+srate = 4096.0   # sampling rate (Hz)
+t     = 32.0     # duration (seconds)
+# savefile = "noise.dat"   # uncomment to save output

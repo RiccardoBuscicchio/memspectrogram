@@ -1,0 +1,12 @@
+# Configuration for examples/toy_psd_estimate.jl
+#
+# Usage:
+#   julia --project=. examples/toy_psd_estimate.jl --config examples/configs/toy_psd_estimate.toml
+#
+# All keys are optional; command-line flags override these values.
+
+N    = 4096          # number of time-series samples
+dt   = 0.00390625   # sampling interval (seconds) → fs = 256 Hz
+seed = 42
+optimisation_method = "FPE"
+method = "Fast"

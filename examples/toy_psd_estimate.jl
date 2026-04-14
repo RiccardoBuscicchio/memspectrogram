@@ -4,12 +4,18 @@ Toy-model PSD estimate from a synthetic time series.
 The script:
 1. Generates an AR(2) toy time series with a known analytical spectrum.
 2. Estimates the PSD from the time series with the MESA (Burg) method.
-3. Compares the MESA estimate against the true analytical AR(2) spectrum.
+3. Compares the MESA estimate (*Memspectrum*) against the true analytical
+   AR(2) spectrum.
 4. Saves the plot to `examples/toy_psd_estimate.png`.
 
 Run from the repository root:
 
     julia examples/toy_psd_estimate.jl
+
+All parameters can be supplied via command-line flags or a TOML config file:
+
+    julia examples/toy_psd_estimate.jl --config examples/configs/toy_psd_estimate.toml
+    julia examples/toy_psd_estimate.jl --N 8192 --seed 0
 
 """
 
@@ -18,19 +24,70 @@ push!(LOAD_PATH, joinpath(@__DIR__, "..", "src"))
 include(joinpath(@__DIR__, "..", "src", "Memspectrum.jl"))
 using .Memspectrum
 
+using ArgParse
+using TOML
 using Random
 using Statistics
 using Plots
 
 # ---------------------------------------------------------------------------
-# Parameters
+# Argument parsing (command-line + TOML config file)
 # ---------------------------------------------------------------------------
 
-const N        = 4_096    # number of time-series samples
-const dt       = 1.0 / 256.0   # sampling interval [s]  →  fs = 256 Hz
-const AR_COEFF = [-1.5, 0.9]   # AR(2) coefficients  (a1, a2, not including a0=1)
-const SIGMA    = 1.0            # white-noise standard deviation
-const SEED     = 42
+function parse_commandline()
+    s = ArgParseSettings(
+        description = "Toy AR(2) PSD estimate with Memspectrum"
+    )
+    @add_arg_table! s begin
+        "--config"
+            help     = "Path to a TOML configuration file (optional)"
+            arg_type = String
+            default  = nothing
+        "--N"
+            help     = "Number of time-series samples"
+            arg_type = Int
+            default  = nothing
+        "--dt"
+            help     = "Sampling interval (seconds)"
+            arg_type = Float64
+            default  = nothing
+        "--seed"
+            help     = "Random seed"
+            arg_type = Int
+            default  = nothing
+        "--optimisation_method"
+            help     = "AR order-selection criterion (FPE, MDL, AIC, CAT, OBD, Fixed)"
+            arg_type = String
+            default  = nothing
+        "--method"
+            help     = "Burg algorithm variant (Fast or Standard)"
+            arg_type = String
+            default  = nothing
+    end
+    return parse_args(s)
+end
+
+# Load parameters: TOML defaults overridden by command-line flags
+args = parse_commandline()
+
+cfg = Dict{String,Any}()
+if args["config"] !== nothing
+    cfg = TOML.parsefile(args["config"])
+end
+
+# Helper: CLI flag wins over config file; config file wins over hard-coded default
+_get(key, default) = args[key] !== nothing ? args[key] :
+                     haskey(cfg, key)       ? cfg[key]  : default
+
+const N    = _get("N",    4_096)
+const dt   = _get("dt",   1.0 / 256.0)
+const SEED = _get("seed", 42)
+const OPT_METHOD = _get("optimisation_method", "FPE")
+const METHOD     = _get("method",              "Fast")
+
+# AR(2) coefficients and noise amplitude are kept fixed for this demo
+const AR_COEFF = [-1.5, 0.9]
+const SIGMA    = 1.0
 
 # ---------------------------------------------------------------------------
 # 1.  Generate the AR(2) time series
@@ -57,11 +114,11 @@ println("  Sample variance: $(round(var(x), digits=3))")
 # ---------------------------------------------------------------------------
 
 m = MESA()
-solve!(m, x; method="Fast", optimisation_method="FPE", verbose=false)
+solve!(m, x; method=METHOD, optimisation_method=OPT_METHOD, verbose=false)
 
 println("\nMESA fit complete: AR order p=$(m.p),  P=$(round(m.P, digits=4))")
 
-f_mesa, psd_mesa = spectrum(m, dt; onesided=true)
+f_mesa, psd_mesa = memspectrum(m, dt; onesided=true)
 
 # ---------------------------------------------------------------------------
 # 3.  Analytical one-sided AR(2) PSD
@@ -94,7 +151,7 @@ plt = plot(
     color   = :black,
     xlabel  = "Frequency (Hz)",
     ylabel  = "PSD  (V²/Hz)",
-    title   = "MESA PSD estimate vs true AR(2) spectrum\n" *
+    title   = "Memspectrum vs true AR(2) spectrum\n" *
               "(N=$N, dt=$dt s, p=$(m.p))",
     legend  = :topright,
     size    = (800, 500),
@@ -102,7 +159,7 @@ plt = plot(
 )
 
 plot!(plt, f_mesa, psd_mesa;
-      label  = "MESA estimate (p=$(m.p))",
+      label  = "Memspectrum estimate (p=$(m.p))",
       lw     = 2,
       color  = :royalblue,
       alpha  = 0.85,

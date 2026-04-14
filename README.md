@@ -2,19 +2,29 @@
 
 **Licence** CC BY 4.0
 
-**Version** 1.3.0
+**Version** 1.4.0
 
-# MAXIMUM ENTROPY SPECTRAL ANALYSIS FOR ACCURATE PSD COMPUTATION
+# Memspectrum.jl — Maximum Entropy Spectral Analysis
 
-`Memspectrum` is a Julia package for computing the power spectral density (PSD)
-of time series using Maximum Entropy Spectral Analysis (MESA) via Burg's algorithm.
-The method is fast and reliable and shows better performance than other standard methods.
+`Memspectrum.jl` is a Julia package for Maximum Entropy Spectral Analysis (MESA)
+via Burg's algorithm.  It provides two core outputs:
 
-The maximum entropy spectral estimation is based on the maximum entropy principle.
-The PSD is expressed in terms of a set of autoregressive (AR) coefficients `a_k` plus
-an overall scale factor `P`. The AR coefficients are obtained recursively through the
-Levinson recursion and characterise the time series as an AR(p) process, enabling
-high-quality forecasting.
+| Output | Function | Description |
+|--------|----------|-------------|
+| **Memspectrum** | `memspectrum` | Power spectral density (PSD) of a time series |
+| **Memgram**     | `memgram`     | Time–frequency spectrogram via overlapping MESA estimates |
+
+The method is fast, reliable, and outperforms classical spectral estimators
+(e.g. the periodogram).
+
+> **Python counterpart:** this package is the Julia port of
+> [`memspectrum`](https://github.com/martini-alessandro/Maximum-Entropy-Spectral-Analysis),
+> the original Python implementation by Alessandro Martini et al.
+
+The PSD is expressed in terms of autoregressive (AR) coefficients `a_k` plus an
+overall scale factor `P`.  The AR coefficients are obtained recursively through
+the Levinson recursion and characterise the time series as an AR(p) process,
+enabling high-quality forecasting.
 
 ## Installation
 
@@ -36,17 +46,23 @@ Pkg.instantiate()
 ## Usage
 
 ```julia
-include("src/Memspectrum.jl")
-using .Memspectrum
+using Memspectrum
 ```
 
-### Compute the PSD
+### Compute the Memspectrum (PSD)
 
 ```julia
 m = MESA()
-solve!(m, data)                       # fit AR model (data is a Float64 vector)
-f, psd = spectrum(m, dt)              # PSD on sampling frequencies
-psd_custom = spectrum(m, dt; frequencies=f_grid)  # PSD on custom grid
+solve!(m, data)                              # fit AR model (Float64 vector)
+f, psd = memspectrum(m, dt)                 # Memspectrum on sampling frequencies
+psd_custom = memspectrum(m, dt; frequencies=f_grid)  # on a custom grid
+```
+
+### Compute the Memgram (spectrogram)
+
+```julia
+t_centers, f_grid, psd_matrix = memgram(x, dt; segment_length=512)
+plt = plot_spectrogram(t_centers, f_grid, psd_matrix)
 ```
 
 ### Forecast future observations
@@ -76,25 +92,51 @@ save_mesa(m, "model.txt")
 m2 = load_mesa("model.txt")
 ```
 
-## Example
+### GPU acceleration
+
+Load `CUDA.jl` before `Memspectrum` to enable GPU-accelerated `forecast`
+and `memgram`:
 
 ```julia
-include("src/Memspectrum.jl")
-using .Memspectrum
+using CUDA
+using Memspectrum
 
-N, dt = 1000, 0.01
-t = range(0, N*dt, length=N)
-data = sin.(2π * 2 .* t) .+ 0.4 .* randn(N)
-
-m = MESA()
-solve!(m, data)
-f, psd = spectrum(m, dt; onesided=true)
+t, f, S = memgram(x, dt; segment_length=512, use_gpu=true)
+sims = forecast(m, data, 1000; number_of_simulations=2048, use_gpu=true)
 ```
 
-See `examples/generate_white_noise.jl` for a complete example generating
-LIGO-like noise from the O3 design PSD.
+## Examples
 
+### Memspectrum — PSD estimate vs true AR(2) spectrum
+
+![Toy PSD estimate](examples/toy_psd_estimate.png)
+
+### Memgram — non-stationary AR(2) signal
+
+![Toy Memgram](examples/toy_spectrogram.png)
+
+### Memgram — linear chirp signal
+
+![Chirp Memgram](examples/chirp_spectrogram.png)
+
+Run the example scripts from the repository root:
+
+```sh
+julia --project=. examples/toy_psd_estimate.jl
+julia --project=. examples/toy_spectrogram.jl
+julia --project=. examples/chirp_spectrogram.jl
 ```
+
+Every example accepts command-line flags **and** an optional TOML config file:
+
+```sh
+julia --project=. examples/toy_psd_estimate.jl \
+    --config examples/configs/toy_psd_estimate.toml
+```
+
+Generate LIGO-like noise from the O3 design PSD:
+
+```sh
 julia examples/generate_white_noise.jl --p 300 --t 32 --srate 4096
 ```
 
@@ -103,3 +145,4 @@ julia examples/generate_white_noise.jl --p 300 --t 32 --srate 4096
 - Original Burg's algorithm: [J.P. Burg – Maximum Entropy Spectral Analysis](http://sepwww.stanford.edu/data/media/public/oldreports/sep06/)
 - Fast implementation: [V. Fastubrg – A Fast Implementation of Burg Method](https://svn.xiph.org/websites/opus-codec.org/docs/vos_fastburg.pdf)
 - Method paper: [Maximum Entropy Spectral Analysis: a case study](https://arxiv.org/abs/2106.09499)
+- Python package: [martini-alessandro/Maximum-Entropy-Spectral-Analysis](https://github.com/martini-alessandro/Maximum-Entropy-Spectral-Analysis)

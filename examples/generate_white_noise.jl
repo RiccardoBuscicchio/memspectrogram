@@ -6,10 +6,15 @@ To generate 32 s of data @ 4096 Hz with AR order 300 run:
 
     julia generate_white_noise.jl --p 300 --t 32 --srate 4096 --savefile fixed_p_noise.dat
 
+All parameters can also be supplied via a TOML configuration file:
+
+    julia generate_white_noise.jl --config examples/configs/generate_white_noise.toml
+
 This will save the noise in the file fixed_p_noise.dat
 """
 
 using ArgParse
+using TOML
 using Downloads
 using DelimitedFiles
 using Random
@@ -20,25 +25,29 @@ push!(LOAD_PATH, joinpath(@__DIR__, ".."))
 using Memspectrum
 
 # ---------------------------------------------------------------------------
-# Command-line arguments
+# Command-line arguments + TOML config file
 # ---------------------------------------------------------------------------
 
 function parse_commandline()
     s = ArgParseSettings(description = "Generate LIGO-like noise via MESA AR model")
 
     @add_arg_table! s begin
+        "--config"
+            help     = "Path to a TOML configuration file (optional)"
+            arg_type = String
+            default  = nothing
         "--p"
             help     = "Autoregressive order of the final timeseries"
             arg_type = Int
-            default  = 300
+            default  = nothing
         "--srate"
             help     = "Sample rate of the final timeseries (Hz)"
             arg_type = Float64
-            default  = 4096.0
+            default  = nothing
         "--t"
             help     = "Length in seconds of the final timeseries"
             arg_type = Float64
-            default  = 32.0
+            default  = nothing
         "--savefile"
             help     = "File to save the timeseries to (optional)"
             arg_type = String
@@ -49,10 +58,18 @@ function parse_commandline()
 end
 
 args = parse_commandline()
-p_order  = args["p"]
-srate    = args["srate"]
-T        = args["t"]
-savefile = args["savefile"]
+cfg  = Dict{String,Any}()
+if args["config"] !== nothing
+    cfg = TOML.parsefile(args["config"])
+end
+
+_get(key, default) = args[key] !== nothing ? args[key] :
+                     haskey(cfg, key)       ? cfg[key]  : default
+
+p_order  = _get("p",        300)
+srate    = _get("srate",    4096.0)
+T        = _get("t",        32.0)
+savefile = _get("savefile", nothing)
 
 # ---------------------------------------------------------------------------
 # Download LIGO O3 PSD if not already present

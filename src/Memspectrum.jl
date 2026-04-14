@@ -2,16 +2,30 @@
     Memspectrum
 
 Package that uses Maximum Entropy Spectral Analysis (MESA) to compute the
-spectrum of a given time-series, implemented with Burg's algorithm.
+*Memspectrum* (power spectral density) and *Memgram* (time–frequency spectrogram)
+of a given time series, implemented via Burg's algorithm.
 
-Basic usage:
+## Basic usage
 
 ```julia
 using Memspectrum
 
 m = MESA()
 solve!(m, time_series)
-f, psd = spectrum(m, dt)
+f, psd = memspectrum(m, dt)          # Memspectrum (PSD)
+
+t, f, S = memgram(x, dt;             # Memgram (spectrogram)
+                  segment_length=512)
+```
+
+## GPU acceleration
+
+If CUDA.jl is loaded, `memgram` and `forecast` automatically offload
+segment/simulation loops to the GPU when `use_gpu=true` is passed.
+
+```julia
+using CUDA
+t, f, S = memgram(x, dt; segment_length=512, use_gpu=true)
 ```
 """
 module Memspectrum
@@ -25,9 +39,9 @@ using Interpolations
 using DelimitedFiles
 using Plots
 
-export MESA, solve!, spectrum, forecast, whiten, entropy_rate, logL,
+export MESA, solve!, spectrum, memspectrum, forecast, whiten, entropy_rate, logL,
        generate_data, save_mesa, load_mesa,
-       mesa_spectrogram, plot_spectrogram
+       mesa_spectrogram, memgram, plot_spectrogram
 
 # ---------------------------------------------------------------------------
 # Loss functions
@@ -755,6 +769,23 @@ function plot_spectrogram(t_centers::AbstractVector, f_grid::AbstractVector,
         return heatmap(t_centers, f_grid, log_psd; kw...)
     end
 end
+
+"""
+    memspectrum(m::MESA, dt=1.0; frequencies=nothing, onesided=false)
+
+Alias for [`spectrum`](@ref).  Returns the *Memspectrum* (MESA power spectral
+density) of the fitted AR model.
+"""
+const memspectrum = spectrum
+
+"""
+    memgram(x, dt; segment_length, overlap=0.5,
+            optimisation_method="FPE", method="Fast", verbose=false)
+
+Alias for [`mesa_spectrogram`](@ref).  Returns the *Memgram*: a time–frequency
+representation computed by running MESA on overlapping segments of `x`.
+"""
+const memgram = mesa_spectrogram
 
 end # module
 
