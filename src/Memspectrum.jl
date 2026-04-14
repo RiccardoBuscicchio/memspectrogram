@@ -23,6 +23,7 @@ using Statistics
 using Random
 using Interpolations
 using DelimitedFiles
+using Plots
 
 export MESA, solve!, spectrum, forecast, whiten, entropy_rate, logL,
        generate_data, save_mesa, load_mesa,
