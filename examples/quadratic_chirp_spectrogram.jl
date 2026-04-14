@@ -95,7 +95,7 @@ _get(key, default) = args[key] !== nothing ? args[key] :
                      haskey(cfg, key)       ? cfg[key]  : default
 
 # Total length is fixed to 16 * 3278 = 52 448 samples.
-const N_TOTAL = 16 * 3278
+const N_TOTAL = 16 * 32768
 
 const FS      = _get("fs",      512.0)
 const DT      = 1.0 / FS
@@ -130,7 +130,7 @@ alpha = (F_END - F_START) / T^2               # quadratic sweep coefficient
 phase = @. 2π * (F_START * t_vec + alpha / 3 * t_vec^3)
 x     = sin.(phase) .+ SIGMA .* randn(N_TOTAL)
 
-println("Generated quadratic chirp: N=$N_TOTAL samples  (16 × 3278),  dt=$(round(DT, digits=6)) s")
+println("Generated quadratic chirp: N=$N_TOTAL samples  (16 × 32768),  dt=$(round(DT, digits=6)) s")
 println("  Duration:              T=$(round(T, digits=3)) s")
 println("  Frequency sweep:       f(t) = $(F_START) + $(round(alpha, sigdigits=4))·t²  Hz")
 println("  f(0)=$(F_START) Hz  →  f(T)=$(F_END) Hz")
@@ -201,7 +201,7 @@ println("  Freq range:  $(round(f_grid[1],     digits=2)) – $(round(f_grid[end
 plt = plot_spectrogram(
     t_centers, f_grid, psd_mat;
     title = "Memgram – quadratic chirp  ($(F_START) → $(F_END) Hz)\n" *
-            "N=$(N_TOTAL) (16×3278), segment=$(SEG_LEN) samples, " *
+            "N=$(N_TOTAL) (16×32768), segment=$(SEG_LEN) samples, " *
             "$(round(Int, OVERLAP*100)) % overlap  |  " *
             "mean Δt=$(round(mean_t, digits=3)) s  ($(Threads.nthreads()) thread(s))",
     size  = (960, 500),

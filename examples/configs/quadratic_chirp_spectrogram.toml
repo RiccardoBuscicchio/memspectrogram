@@ -3,7 +3,7 @@
 # Usage:
 #   julia examples/quadratic_chirp_spectrogram.jl --config examples/configs/quadratic_chirp_spectrogram.toml
 #
-# Total length is fixed to 16 * 3278 = 52 448 samples regardless of config.
+# Total length is fixed to 16 * 32768 = 524 288 samples regardless of config.
 
 fs      = 512.0    # sampling rate (Hz)
 sigma   = 0.25     # additive noise amplitude
