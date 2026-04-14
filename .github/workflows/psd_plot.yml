@@ -8,6 +8,8 @@ jobs:
   generate-psd-plot:
     name: Generate toy PSD estimate plot
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -37,6 +39,8 @@ jobs:
   generate-spectrogram:
     name: Generate MESA spectrogram
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
