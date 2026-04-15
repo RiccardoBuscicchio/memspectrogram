@@ -1,0 +1,3 @@
+# Julia package manifest — not committed for libraries;
+# let each Julia version resolve its own compatible dependencies.
+Manifest.toml
