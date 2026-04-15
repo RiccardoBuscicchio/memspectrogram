@@ -1,8 +1,8 @@
 """
-Memgram of a quadratic-chirp signal (4096-sample segments).
+Memgram of a quadratic-chirp signal (512-sample segments).
 
 The script:
-1. Generates a time series of exactly 16 × 3278 = 52448 samples consisting of
+1. Generates a time series of exactly 16 × 2048 = 32768 samples consisting of
    a quadratic chirp (instantaneous frequency sweeping as f(t) = F_START + α·t²)
    plus additive Gaussian noise.
 2. Times the `memgram` call (warm-up run first, then N_REPS timed runs).
@@ -94,8 +94,8 @@ end
 _get(key, default) = args[key] !== nothing ? args[key] :
                      haskey(cfg, key)       ? cfg[key]  : default
 
-# Total length is fixed to 16 * 3278 = 52 448 samples.
-const N_TOTAL = 16 * 32768
+# Total length is fixed to 16 * 2048 = 32 768 samples.
+const N_TOTAL = 16 * 2048
 
 const FS      = _get("fs",      512.0)
 const DT      = 1.0 / FS
@@ -103,8 +103,8 @@ const T       = N_TOTAL * DT                  # total duration in seconds
 const SIGMA   = _get("sigma",   0.25)
 const SEED    = _get("seed",    42)
 const F_START = _get("f_start", 5.0)
-const F_END   = _get("f_end",   120.0)
-const SEG_LEN = _get("seg_len", 4096)
+const F_END   = _get("f_end",   200.0)
+const SEG_LEN = _get("seg_len", 512)
 const OVERLAP = _get("overlap", 0.875)
 const OPT_METHOD = _get("optimisation_method", "FPE")
 const METHOD     = _get("method",              "Fast")

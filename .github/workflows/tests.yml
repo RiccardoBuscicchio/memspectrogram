@@ -32,3 +32,30 @@ jobs:
 
       - name: Run tests
         run: julia --project=. test/runtests.jl
+
+  gpu-extension-tests:
+    name: GPU extension tests (Julia 1, CPU fallback)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Julia
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+
+      - name: Cache Julia packages
+        uses: julia-actions/cache@v2
+
+      - name: Instantiate project
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
+
+      - name: Add CUDA to test environment
+        run: julia --project=. -e 'using Pkg; Pkg.add("CUDA")'
+
+      - name: Run GPU extension tests
+        run: julia --project=. test/gpu_tests.jl

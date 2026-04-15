@@ -3,14 +3,14 @@
 # Usage:
 #   julia examples/quadratic_chirp_spectrogram.jl --config examples/configs/quadratic_chirp_spectrogram.toml
 #
-# Total length is fixed to 16 * 32768 = 524 288 samples regardless of config.
+# Total length is fixed to 16 * 2048 = 32 768 samples regardless of config.
 
 fs      = 512.0    # sampling rate (Hz)
 sigma   = 0.25     # additive noise amplitude
 seed    = 42
 f_start = 5.0      # chirp start frequency (Hz)
-f_end   = 120.0    # chirp end frequency (Hz)
-seg_len = 4096     # samples per spectrogram segment
+f_end   = 200.0    # chirp end frequency (Hz)
+seg_len = 512      # samples per spectrogram segment
 overlap = 0.875    # fractional overlap (0–1)
 n_reps  = 5        # number of timing repetitions
 optimisation_method = "FPE"
