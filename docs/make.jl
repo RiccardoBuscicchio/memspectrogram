@@ -8,7 +8,11 @@ let assets_dir = joinpath(@__DIR__, "src", "assets")
                 "chirp_spectrogram.png", "quadratic_chirp_spectrogram.png"]
         src = joinpath(@__DIR__, "..", "examples", img)
         dst = joinpath(assets_dir, img)
-        isfile(src) && cp(src, dst; force=true)
+        if isfile(src)
+            cp(src, dst; force=true)
+        else
+            @warn "Example image not found — run the example script first: examples/$img"
+        end
     end
 end
 
