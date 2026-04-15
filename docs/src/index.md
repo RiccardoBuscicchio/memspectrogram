@@ -80,5 +80,5 @@ sims = forecast(m, data, 1000; number_of_simulations=2048, use_gpu=true)
 
 ## See also
 
-* [API reference](@ref "API")
+* [API reference](@ref "API Reference")
 * [Examples](@ref "Examples")

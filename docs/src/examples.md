@@ -14,7 +14,7 @@ the known analytical spectrum.
 julia --project=. examples/toy_psd_estimate.jl
 ```
 
-![Toy PSD estimate](../../examples/toy_psd_estimate.png)
+![Toy PSD estimate](assets/toy_psd_estimate.png)
 
 ---
 
@@ -26,7 +26,7 @@ Generates a non-stationary AR(2) signal and computes the Memgram.
 julia --project=. examples/toy_spectrogram.jl
 ```
 
-![Toy Memgram](../../examples/toy_spectrogram.png)
+![Toy Memgram](assets/toy_spectrogram.png)
 
 ---
 
@@ -39,7 +39,7 @@ instantaneous frequency.
 julia --project=. examples/chirp_spectrogram.jl
 ```
 
-![Chirp Memgram](../../examples/chirp_spectrogram.png)
+![Chirp Memgram](assets/chirp_spectrogram.png)
 
 ---
 
