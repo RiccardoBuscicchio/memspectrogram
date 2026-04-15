@@ -78,8 +78,8 @@ _get(key, default) = args[key] !== nothing ? args[key] :
 
 const FS       = 256.0
 const DT       = 1.0 / FS
-const N_TOTAL  = _get("n_total",  32_768)
-const SEG_LEN  = _get("seg_len",  512)
+const N_TOTAL  = _get("n_total",  524_288) #32_768)
+const SEG_LEN  = _get("seg_len",  4096)
 const OVERLAP  = _get("overlap",  0.75)
 const N_REPS   = _get("n_reps",   5)
 const SEED     = _get("seed",     42)
