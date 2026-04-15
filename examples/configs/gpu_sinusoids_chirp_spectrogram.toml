@@ -1,0 +1,22 @@
+# Default parameters for gpu_sinusoids_chirp_spectrogram.jl
+# Override any value here; command-line flags take precedence over this file.
+
+fs                 = 4096.0    # sampling rate (Hz)
+seg_len            = 4096      # samples per segment (N_TOTAL = 16 × 32768 = 524288)
+overlap            = 0.75      # fractional segment overlap
+optimisation_method = "FPE"    # AR order-selection criterion
+method             = "Fast"    # Burg variant
+
+sigma              = 0.1       # additive noise amplitude
+seed               = 42        # random seed
+n_reps             = 3         # timed repetitions per backend
+
+# Three stationary sinusoids (Hz)
+f1                 = 50.0
+f2                 = 200.0
+f3                 = 600.0
+
+# Linear chirp (Hz)
+f_chirp_start      = 10.0
+f_chirp_end        = 400.0
+n_harmonics        = 3         # fundamental + 2 overtones
