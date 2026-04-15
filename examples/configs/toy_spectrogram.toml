@@ -1,0 +1,13 @@
+# Configuration for examples/toy_spectrogram.jl
+#
+# Usage:
+#   julia --project=. examples/toy_spectrogram.jl --config examples/configs/toy_spectrogram.toml
+
+fs           = 256.0    # sampling rate (Hz)
+n_total      = 8192     # total number of samples
+sigma        = 1.0      # innovation standard deviation
+seed         = 0
+seg_len      = 512      # samples per segment
+overlap      = 0.75     # fractional overlap (0–1)
+optimisation_method = "FPE"
+method       = "Fast"

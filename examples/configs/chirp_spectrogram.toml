@@ -1,0 +1,15 @@
+# Configuration for examples/chirp_spectrogram.jl
+#
+# Usage:
+#   julia --project=. examples/chirp_spectrogram.jl --config examples/configs/chirp_spectrogram.toml
+
+fs      = 512.0    # sampling rate (Hz)
+t       = 16.0     # total duration (seconds)
+sigma   = 0.25     # additive noise amplitude
+seed    = 7
+f_start = 5.0      # chirp start frequency (Hz)
+f_end   = 120.0    # chirp end frequency (Hz)
+seg_len = 512      # samples per spectrogram segment
+overlap = 0.875    # fractional overlap (0–1)
+optimisation_method = "FPE"
+method  = "Fast"

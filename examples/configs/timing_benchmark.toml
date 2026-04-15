@@ -1,0 +1,11 @@
+# Configuration for examples/timing_benchmark.jl
+#
+# Usage:
+#   julia -t 4 --project=. examples/timing_benchmark.jl \
+#       --config examples/configs/timing_benchmark.toml
+
+n_total = 32768   # total samples (~128 s at 256 Hz)
+seg_len = 512     # samples per segment (~2 s)
+overlap = 0.75    # 75 % overlap
+n_reps  = 5       # number of timing repetitions
+seed    = 42
