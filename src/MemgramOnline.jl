@@ -14,8 +14,9 @@ chunk is enqueued.
 ## Typical usage
 
 ```julia
-push!(LOAD_PATH, "src")
-include("src/Memspectrum.jl")
+# Run from the repository root so that relative paths resolve correctly.
+push!(LOAD_PATH, joinpath(@__DIR__, "src"))
+include(joinpath(@__DIR__, "src", "Memspectrum.jl"))
 using .Memspectrum
 using .Memspectrum.MemgramOnline
 

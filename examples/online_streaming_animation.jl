@@ -138,6 +138,8 @@ const FRAME_STRIDE = _get("frame_stride",         1)
 Random.seed!(SEED)
 
 t_vec = collect((0:N_TOTAL-1) .* DT)
+# Instantaneous frequency sweeps linearly: f(t) = F_START + (F_END - F_START) * t / T_TOTAL
+# The accumulated phase is the integral: φ(t) = 2π * [F_START*t + (F_END-F_START)/(2*T)*t²]
 phase = @. 2π * (F_START * t_vec + (F_END - F_START) / (2 * T_TOTAL) * t_vec^2)
 x     = sin.(phase) .+ SIGMA .* randn(N_TOTAL)
 
@@ -193,8 +195,10 @@ isempty(t_centers) && error("No segments were produced.  " *
 println("\nBuilding animation (frame_stride=$FRAME_STRIDE, fps=$FPS) …")
 
 # Assemble the full PSD matrix and compute global colour limits once.
+# Use a small floor value to avoid log10(0) for zero or near-zero PSD values.
+const MIN_PSD_FLOOR = 1e-300
 psd_mat  = hcat(psd_cols...)
-log_psd  = log10.(max.(psd_mat, 1e-300))
+log_psd  = log10.(max.(psd_mat, MIN_PSD_FLOOR))
 clim_lo  = minimum(log_psd)
 clim_hi  = maximum(log_psd)
 
