@@ -41,7 +41,8 @@ using Plots
 
 export MESA, solve!, spectrum, memspectrum, forecast, whiten, entropy_rate, logL,
        generate_data, save_mesa, load_mesa,
-       mesa_spectrogram, memgram, plot_spectrogram
+       mesa_spectrogram, memgram, plot_spectrogram,
+       MemgramOnline, OnlineMemgramProcessor, start_processor, push_chunk!, close_processor!
 
 # ---------------------------------------------------------------------------
 # Loss functions
@@ -786,6 +787,13 @@ Alias for [`mesa_spectrogram`](@ref).  Returns the *Memgram*: a time–frequency
 representation computed by running MESA on overlapping segments of `x`.
 """
 const memgram = mesa_spectrogram
+
+# ---------------------------------------------------------------------------
+# Online streaming sub-module (asyncio-style channel/task interface)
+# ---------------------------------------------------------------------------
+
+include("MemgramOnline.jl")
+using .MemgramOnline
 
 end # module
 
