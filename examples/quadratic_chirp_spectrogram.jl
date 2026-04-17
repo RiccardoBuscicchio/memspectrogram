@@ -77,6 +77,10 @@ function parse_commandline()
             help     = "Burg algorithm variant (Fast or Standard)"
             arg_type = String
             default  = nothing
+        "--n_total"
+            help     = "Total number of samples (default: 16 × 2048 = 32768)"
+            arg_type = Int
+            default  = nothing
         "--n_reps"
             help     = "Number of timing repetitions"
             arg_type = Int
@@ -94,8 +98,8 @@ end
 _get(key, default) = args[key] !== nothing ? args[key] :
                      haskey(cfg, key)       ? cfg[key]  : default
 
-# Total length is fixed to 16 * 2048 = 32 768 samples.
-const N_TOTAL = 16 * 2048
+# Total length defaults to 16 * 2048 = 32 768 samples; override with --n_total.
+const N_TOTAL    = _get("n_total", 16 * 2048)
 
 const FS      = _get("fs",      512.0)
 const DT      = 1.0 / FS
