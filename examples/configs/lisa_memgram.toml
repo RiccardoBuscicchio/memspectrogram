@@ -2,6 +2,9 @@
 #
 # Usage:
 #   julia --project=. examples/lisa_memgram.jl --config examples/configs/lisa_memgram.toml
+#
+# To use all CPU cores and (if available) the GPU:
+#   julia -t auto --project=. examples/lisa_memgram.jl --config examples/configs/lisa_memgram.toml
 
 dt      = 5.0          # sampling cadence (seconds)
 t       = 864000.0     # total duration (10 days in seconds)
@@ -13,3 +16,4 @@ seg_s   = 1e5          # segment duration (seconds) → 20 000 samples at DT=5s
 overlap = 0.95         # fractional overlap (0–1)
 optimisation_method = "FPE"
 method  = "Fast"
+# use_gpu = true       # uncomment to force GPU (requires CUDA.jl); auto-detected by default
