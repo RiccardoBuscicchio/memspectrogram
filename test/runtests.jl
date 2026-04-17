@@ -204,4 +204,45 @@ using .Memspectrum
         @test abs(f[argmax(psd)] - true_peak) < 10.0
     end
 
+    # -----------------------------------------------------------------------
+    @testset "lisamemgram – LISA-like chirp" begin
+        # Parameters matching a typical LISA gravitational-wave chirp:
+        #   DT    = 5 s  (0.2 Hz sampling rate)
+        #   T     = 10 days
+        #   chirp sweeping from 1e-4 Hz to 1e-3 Hz
+        #   segments of 1e5 s  →  20 000 samples
+        #   95 % overlap
+        Random.seed!(11)
+        DT       = 5.0
+        T_total  = 10 * 86400          # 864 000 s
+        N_total  = round(Int, T_total / DT)   # 172 800 samples
+        F_start  = 1e-4                # Hz
+        F_end    = 1e-3                # Hz
+        seg_s    = 1e5                 # segment length in seconds
+        seg_len  = round(Int, seg_s / DT)     # 20 000 samples
+        overlap  = 0.95
+
+        t_vec = collect((0:N_total-1) .* DT)
+        phase = @. 2π * (F_start * t_vec + (F_end - F_start) / (2 * T_total) * t_vec^2)
+        x     = sin.(phase) .+ 0.1 .* randn(N_total)
+
+        t_c, f_g, S = memgram(x, DT;
+                               segment_length      = seg_len,
+                               overlap             = overlap,
+                               optimisation_method = "FPE",
+                               method              = "Fast",
+                               verbose             = false)
+
+        # Basic shape and sanity checks
+        @test size(S, 1) == seg_len ÷ 2
+        @test size(S, 2) == length(t_c)
+        @test length(f_g) == seg_len ÷ 2
+        @test all(S .> 0)
+        # Nyquist frequency is 0.5 / DT = 0.1 Hz
+        @test maximum(f_g) < 0.5 / DT
+        # Time axis should start after the first half-segment and not exceed T_total
+        @test t_c[1]   > 0.0
+        @test t_c[end] < T_total
+    end
+
 end # @testset "Memspectrum.jl"
