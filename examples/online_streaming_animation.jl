@@ -178,7 +178,7 @@ n_chunks = 0
 for start in 1:CHUNK_SIZE:N_TOTAL
     chunk = x[start : min(start + CHUNK_SIZE - 1, N_TOTAL)]
     push_chunk!(proc, chunk)
-    n_chunks += 1
+    global n_chunks += 1
 end
 
 close_processor!(proc)      # wait for the background Task to finish
