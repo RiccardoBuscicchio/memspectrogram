@@ -1,0 +1,15 @@
+# Configuration for examples/lisa_memgram.jl
+#
+# Usage:
+#   julia --project=. examples/lisa_memgram.jl --config examples/configs/lisa_memgram.toml
+
+dt      = 5.0          # sampling cadence (seconds)
+t       = 864000.0     # total duration (10 days in seconds)
+sigma   = 0.1          # additive noise amplitude
+seed    = 11
+f_start = 1e-4         # chirp start frequency (Hz)
+f_end   = 1e-3         # chirp end frequency (Hz)
+seg_s   = 1e5          # segment duration (seconds) → 20 000 samples at DT=5s
+overlap = 0.95         # fractional overlap (0–1)
+optimisation_method = "FPE"
+method  = "Fast"

@@ -13,7 +13,7 @@ jobs:
 
     strategy:
       matrix:
-        julia-version: ["1.9", "1"]
+        julia-version: ["1.10.11", "1"]
 
     steps:
       - name: Checkout repository
