@@ -459,7 +459,8 @@ function forecast(mesa::MESA, data::AbstractVector, len::Int;
                   P=nothing,
                   include_data::Bool=false,
                   seed::Union{Int, Nothing}=nothing,
-                  verbose::Bool=false)
+                  verbose::Bool=false,
+                  use_gpu::Bool=false)
     (mesa.P === nothing || mesa.a_k === nothing) &&
         error("Model not fitted. Call solve! before forecast.")
 
@@ -682,7 +683,8 @@ function mesa_spectrogram(x::AbstractVector, dt::Float64;
                           overlap::Float64=0.5,
                           optimisation_method::String="FPE",
                           method::String="Fast",
-                          verbose::Bool=false)
+                          verbose::Bool=false,
+                          use_gpu::Bool=false)
     0.0 <= overlap < 1.0 ||
         error("overlap must be in [0, 1).")
     segment_length >= 4 ||
