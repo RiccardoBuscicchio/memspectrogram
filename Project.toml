@@ -31,4 +31,4 @@ test = ["Test"]
 docs = ["Documenter"]
 
 [compat]
-julia = "1.9"
+julia = "1.10.11"
