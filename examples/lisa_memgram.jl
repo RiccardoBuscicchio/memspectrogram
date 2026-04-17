@@ -10,9 +10,17 @@ Run from the repository root:
 
     julia examples/lisa_memgram.jl
 
+Use multiple CPU threads (recommended for large spectrograms):
+
+    julia -t auto examples/lisa_memgram.jl
+
+Use a CUDA GPU (auto-detected; requires CUDA.jl):
+
+    julia examples/lisa_memgram.jl --use_gpu true
+
 All parameters can be supplied via command-line flags or a TOML config file:
 
-    julia examples/lisa_memgram.jl --config examples/configs/lisa_memgram.toml
+    julia -t auto examples/lisa_memgram.jl --config examples/configs/lisa_memgram.toml
     julia examples/lisa_memgram.jl --f_start 1e-4 --f_end 1e-3
 
 """
@@ -26,6 +34,14 @@ using ArgParse
 using TOML
 using Random
 using Plots
+
+# CUDA is loaded conditionally so the script also runs on CPU-only machines.
+const HAVE_CUDA = try
+    using CUDA
+    CUDA.functional()
+catch
+    false
+end
 
 # ---------------------------------------------------------------------------
 # Argument parsing (command-line + TOML config file)
@@ -82,6 +98,10 @@ function parse_commandline()
             help     = "Burg algorithm variant: Fast or Standard (default: Fast)"
             arg_type = String
             default  = nothing
+        "--use_gpu"
+            help     = "Use GPU acceleration if CUDA is available (default: auto)"
+            arg_type = Bool
+            default  = nothing
     end
     return parse_args(s)
 end
@@ -109,6 +129,14 @@ const SEG_LEN = round(Int, SEG_S / DT)
 const OVERLAP = _get("overlap", 0.95)
 const OPT_METHOD = _get("optimisation_method", "FPE")
 const METHOD     = _get("method",              "Fast")
+# Use GPU if explicitly requested, or auto-detect from CUDA availability.
+const USE_GPU = if args["use_gpu"] !== nothing
+    args["use_gpu"]
+elseif haskey(cfg, "use_gpu")
+    cfg["use_gpu"]
+else
+    HAVE_CUDA
+end
 
 # ---------------------------------------------------------------------------
 # 1.  Generate a linear chirp signal with additive noise
@@ -130,6 +158,18 @@ println("  Nyquist:          $(round(0.5/DT, sigdigits=3)) Hz")
 println("  Segment:          $SEG_S s  =  $SEG_LEN samples")
 println("  Overlap:          $(round(Int, OVERLAP*100)) %")
 println("  Noise amplitude:  σ=$SIGMA")
+println("  CPU threads:      $(Threads.nthreads())" *
+        (Threads.nthreads() == 1 ?
+         "  (tip: re-run with `julia -t auto` to use all cores)" : ""))
+if USE_GPU
+    if HAVE_CUDA
+        println("  GPU:              $(CUDA.name(CUDA.device()))  [use_gpu=true]")
+    else
+        @warn "use_gpu=true requested but CUDA is not available – falling back to CPU."
+    end
+else
+    println("  GPU:              disabled  (pass --use_gpu true to enable)")
+end
 
 # ---------------------------------------------------------------------------
 # 2.  Compute MESA spectrogram (Memgram)
@@ -143,6 +183,7 @@ t_centers, f_grid, psd_mat = memgram(
     optimisation_method = OPT_METHOD,
     method              = METHOD,
     verbose             = true,
+    use_gpu             = USE_GPU && HAVE_CUDA,
 )
 
 println("\nMemgram: $(size(psd_mat, 2)) segments × $(length(f_grid)) frequency bins")
