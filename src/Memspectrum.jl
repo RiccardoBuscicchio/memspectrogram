@@ -41,7 +41,8 @@ using Plots
 
 export MESA, solve!, spectrum, memspectrum, forecast, whiten, entropy_rate, logL,
        generate_data, save_mesa, load_mesa,
-       mesa_spectrogram, memgram, plot_spectrogram
+       mesa_spectrogram, memgram, plot_spectrogram,
+       MemgramOnline, OnlineMemgramProcessor, start_processor, push_chunk!, close_processor!
 
 # ---------------------------------------------------------------------------
 # Loss functions
@@ -458,7 +459,8 @@ function forecast(mesa::MESA, data::AbstractVector, len::Int;
                   P=nothing,
                   include_data::Bool=false,
                   seed::Union{Int, Nothing}=nothing,
-                  verbose::Bool=false)
+                  verbose::Bool=false,
+                  use_gpu::Bool=false)
     (mesa.P === nothing || mesa.a_k === nothing) &&
         error("Model not fitted. Call solve! before forecast.")
 
@@ -681,7 +683,8 @@ function mesa_spectrogram(x::AbstractVector, dt::Float64;
                           overlap::Float64=0.5,
                           optimisation_method::String="FPE",
                           method::String="Fast",
-                          verbose::Bool=false)
+                          verbose::Bool=false,
+                          use_gpu::Bool=false)
     0.0 <= overlap < 1.0 ||
         error("overlap must be in [0, 1).")
     segment_length >= 4 ||
@@ -786,6 +789,13 @@ Alias for [`mesa_spectrogram`](@ref).  Returns the *Memgram*: a time–frequency
 representation computed by running MESA on overlapping segments of `x`.
 """
 const memgram = mesa_spectrogram
+
+# ---------------------------------------------------------------------------
+# Online streaming sub-module (asyncio-style channel/task interface)
+# ---------------------------------------------------------------------------
+
+include("MemgramOnline.jl")
+using .MemgramOnline
 
 end # module
 

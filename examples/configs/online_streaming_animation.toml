@@ -1,0 +1,18 @@
+# Configuration for examples/online_streaming_animation.jl
+#
+# Usage:
+#   julia examples/online_streaming_animation.jl --config examples/configs/online_streaming_animation.toml
+
+fs      = 256.0    # sampling rate (Hz)
+t       = 16.0     # total signal duration (seconds)
+sigma   = 0.2      # additive noise amplitude
+seed    = 42
+f_start = 5.0      # chirp start frequency (Hz)
+f_end   = 100.0    # chirp end frequency (Hz)
+seg_len = 256      # samples per spectrogram segment
+overlap = 0.75     # fractional overlap (0–1)
+optimisation_method = "FPE"
+method  = "Fast"
+chunk_size   = 64  # samples per streaming chunk
+fps          = 12  # frames per second for the output GIF
+frame_stride = 1   # animate every N-th segment (1 = every segment)

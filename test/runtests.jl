@@ -20,6 +20,7 @@ if !isdefined(Main, :Memspectrum)
     include(joinpath(@__DIR__, "..", "src", "Memspectrum.jl"))
 end
 using .Memspectrum
+using .Memspectrum.MemgramOnline
 
 @testset "Memspectrum.jl" begin
 
@@ -202,6 +203,88 @@ using .Memspectrum
         # a generous but realistic tolerance for N=4096 and high-noise AR(2).
         true_peak = acos(-a1 / (2 * sqrt(a2))) / (2π * dt)
         @test abs(f[argmax(psd)] - true_peak) < 10.0
+    end
+
+    # -----------------------------------------------------------------------
+    @testset "MemgramOnline – basic streaming" begin
+        Random.seed!(20)
+        N   = 2048
+        dt  = 1.0 / 256.0
+        x   = randn(N)
+
+        t_online  = Float64[]
+        psd_cols  = Vector{Float64}[]
+        f_ref     = Float64[]
+
+        proc = start_processor(;
+            segment_length      = 256,
+            overlap             = 0.5,
+            dt                  = dt,
+            optimisation_method = "FPE",
+            method              = "Fast",
+            on_update = (t_c, f_g, psd_c) -> begin
+                push!(t_online, t_c)
+                push!(psd_cols, copy(psd_c))
+                isempty(f_ref) && append!(f_ref, f_g)
+            end,
+        )
+
+        # Stream in chunks of 128 samples
+        for s in 1:128:N
+            push_chunk!(proc, x[s:min(s+127, N)])
+        end
+        close_processor!(proc)
+
+        @test !isempty(t_online)
+        @test length(t_online) == length(psd_cols)
+        @test all(t_c > 0 for t_c in t_online)
+        # All PSD columns should be positive and the correct length
+        n_freq = 256 ÷ 2
+        @test all(length(p) == n_freq for p in psd_cols)
+        @test all(all(p .> 0) for p in psd_cols)
+        # f_grid should span [0, Nyquist)
+        @test length(f_ref) == n_freq
+        @test f_ref[1] ≈ 0.0
+        @test f_ref[end] < 0.5 / dt
+    end
+
+    # -----------------------------------------------------------------------
+    @testset "MemgramOnline – matches offline memgram" begin
+        # The online processor should produce the same segments as the batch
+        # memgram when data is fed in one single chunk.
+        Random.seed!(21)
+        N   = 2048
+        dt  = 1.0 / 256.0
+        x   = randn(N)
+
+        seg_len = 256
+        ov      = 0.5
+
+        # Offline reference
+        t_off, f_off, S_off = memgram(x, dt; segment_length=seg_len, overlap=ov)
+
+        # Online processor – send all data at once
+        t_on  = Float64[]
+        psd_on = Vector{Float64}[]
+
+        proc = start_processor(;
+            segment_length      = seg_len,
+            overlap             = ov,
+            dt                  = dt,
+            optimisation_method = "FPE",
+            method              = "Fast",
+            on_update = (t_c, _, psd_c) -> begin
+                push!(t_on, t_c)
+                push!(psd_on, copy(psd_c))
+            end,
+        )
+        push_chunk!(proc, x)
+        close_processor!(proc)
+
+        @test length(t_on) == length(t_off)
+        @test t_on ≈ t_off  atol=1e-10
+        psd_on_mat = hcat(psd_on...)
+        @test psd_on_mat ≈ S_off  atol=1e-10
     end
 
     # -----------------------------------------------------------------------
