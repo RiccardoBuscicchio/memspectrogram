@@ -1,0 +1,31 @@
+# Configuration for examples/gw170817_spectrogram.jl — STANDARD execution
+#
+# Uses the Standard Burg variant, which is fully numerically robust on real
+# interferometer data.  Longer segments give better low-frequency resolution.
+#
+# Usage:
+#   julia --project=. examples/gw170817_spectrogram.jl \
+#       --config examples/configs/gw170817_spectrogram_standard.toml
+
+# Data source (GWOSC open data portal)
+h1_url = "https://gwosc.org/s/events/GW170817/H-H1_LOSC_CLN_4_V1-1187008866-32.hdf5"
+
+# Bandpass filter — wider upper bound than GW150914 to capture the BNS chirp
+bp_low   = 20.0    # lower cut-off (Hz)
+bp_high  = 1000.0  # upper cut-off (Hz)
+bp_order = 4       # Butterworth order
+
+# Memgram parameters — longer segments for better frequency resolution
+seg_len = 2048     # samples per segment  (≈ 0.5 s at 4096 Hz)
+overlap = 0.95     # fractional segment overlap
+
+# Display window (seconds either side of GW170817 merger)
+t_window = 2.0
+
+# Display frequency range
+f_min = 20.0       # Hz
+f_max = 1000.0     # Hz
+
+# AR model settings — Standard (robust) Burg algorithm
+optimisation_method = "FPE"
+method = "Standard"

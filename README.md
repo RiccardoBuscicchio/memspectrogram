@@ -123,6 +123,10 @@ sims = forecast(m, data, 1000; number_of_simulations=2048, use_gpu=true)
 
 ![GW150914 Memgram](examples/gw150914_spectrogram.png)
 
+### Memgram — GW170817 (real LIGO data)
+
+![GW170817 Memgram](examples/gw170817_spectrogram.png)
+
 Run the example scripts from the repository root:
 
 ```sh
@@ -130,6 +134,7 @@ julia --project=. examples/toy_psd_estimate.jl
 julia --project=. examples/toy_spectrogram.jl
 julia --project=. examples/chirp_spectrogram.jl
 julia --project=. examples/gw150914_spectrogram.jl
+julia --project=. examples/gw170817_spectrogram.jl
 ```
 
 Every example accepts command-line flags **and** an optional TOML config file:
