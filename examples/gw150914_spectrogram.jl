@@ -6,19 +6,28 @@ The script:
    (GPS 1126259446–1126259478) from the LOSC tutorial repository on GitHub.
 2. Applies a Butterworth bandpass filter (20–400 Hz) to suppress low-frequency
    seismic noise and high-frequency roll-off.
-3. Computes the Memgram (MESA spectrogram) on overlapping short segments.
-4. Saves the Memgram image to `examples/gw150914_spectrogram.png`.
+3. Computes the Memgram (MESA spectrogram) on overlapping short segments of
+   the full 32-second record.
+4. Restricts the output to a ±t_window second window centred on the merger.
+5. Saves the Memgram image to `examples/gw150914_spectrogram.png`.
 
 Run from the repository root:
 
     julia --project=. examples/gw150914_spectrogram.jl
 
-All parameters can be supplied via command-line flags or a TOML config file:
+Use the Fast Burg variant (quicker but less robust on real interferometer data):
 
     julia --project=. examples/gw150914_spectrogram.jl \\
-        --config examples/configs/gw150914_spectrogram.toml
+        --config examples/configs/gw150914_spectrogram_fast.toml
 
-    julia --project=. examples/gw150914_spectrogram.jl --seg_len 1024
+Use the Standard Burg variant (robust, recommended for real data):
+
+    julia --project=. examples/gw150914_spectrogram.jl \\
+        --config examples/configs/gw150914_spectrogram_standard.toml
+
+All parameters can be supplied via command-line flags or a TOML config file:
+
+    julia --project=. examples/gw150914_spectrogram.jl --seg_len 1024 --t_window 4
 
 Data source:
   LIGO Open Science Center (LOSC) tutorial data hosted on GitHub:
@@ -93,6 +102,10 @@ function parse_commandline()
             help     = "Burg algorithm variant (Fast or Standard)"
             arg_type = String
             default  = nothing
+        "--t_window"
+            help     = "Half-width of the time window displayed around the merger (s); total window = 2×t_window"
+            arg_type = Float64
+            default  = nothing
     end
     return parse_args(s)
 end
@@ -119,6 +132,7 @@ const F_MIN    = _get("f_min",    20.0)
 const F_MAX    = _get("f_max",    400.0)
 const OPT_METHOD = _get("optimisation_method", "FPE")
 const METHOD     = _get("method",              "Standard")
+const T_WINDOW   = _get("t_window",            2.0)   # half-width in seconds (±T_WINDOW around merger)
 
 # GW150914 merger GPS time (used to mark the event on the plot)
 const GPS_MERGE = 1126259462.4
@@ -183,14 +197,19 @@ t_centers_gps, f_grid, psd_mat = memgram(
 # Convert to time relative to the GW150914 merger by adding the GPS start offset.
 t_centers_rel = (gps_start .+ t_centers_gps) .- GPS_MERGE
 
+# Restrict to ±T_WINDOW seconds around the merger
+time_mask  = abs.(t_centers_rel) .<= T_WINDOW
+t_show_rel = t_centers_rel[time_mask]
+psd_win    = psd_mat[:, time_mask]
+
 # Restrict frequency axis to [F_MIN, F_MAX] for display
 freq_mask = (f_grid .>= F_MIN) .& (f_grid .<= F_MAX)
 f_show    = f_grid[freq_mask]
-psd_show  = psd_mat[freq_mask, :]
+psd_show  = psd_win[freq_mask, :]
 
-println("\nMemgram: $(size(psd_show, 2)) segments × $(length(f_show)) freq bins")
-println("  Time range:  $(round(t_centers_rel[1],  digits=2)) – " *
-        "$(round(t_centers_rel[end], digits=2)) s  (relative to merger)")
+println("\nMemgram: $(size(psd_show, 2)) segments × $(length(f_show)) freq bins  (±$(T_WINDOW) s window)")
+println("  Time range:  $(round(t_show_rel[1],  digits=2)) – " *
+        "$(round(t_show_rel[end], digits=2)) s  (relative to merger)")
 println("  Freq range:  $(round(f_show[1],   digits=1)) – " *
         "$(round(f_show[end], digits=1)) Hz")
 
@@ -199,7 +218,7 @@ println("  Freq range:  $(round(f_show[1],   digits=1)) – " *
 # ---------------------------------------------------------------------------
 
 plt = plot_spectrogram(
-    t_centers_rel, f_show, psd_show;
+    t_show_rel, f_show, psd_show;
     title = "GW150914 — H1 Memgram  ($(BP_LOW)–$(BP_HIGH) Hz bandpass)\n" *
             "segment=$(SEG_LEN) samples, $(round(Int, OVERLAP*100)) % overlap",
     size  = (960, 500),

@@ -233,6 +233,16 @@ function _fast_burg!(mesa::MESA, data::Vector, mmax::Int,
         end
 
         k, new_a = _update_coefficients_fast(a[end], g)
+
+        # Detect numerical breakdown before any push to typed vectors.
+        # Check both real and imaginary parts for NaN (avoids Float64(NaN+NaN*im) crash).
+        has_nan = isnan(real(k)) || isnan(imag(k)) || any(x -> isnan(real(x)) || isnan(imag(x)), new_a)
+        if has_nan
+            @warn "Numerical stability issue at order $(i+1). Results may be unreliable."
+            idx = isempty(optimization) ? 1 : argmin(optimization)
+            break
+        end
+
         r_new    = _update_r(i, r, c[i+3], data, N)   # c[i+3] = lag i+2
         dra      = _construct_dr2(i, new_a, data, N)
         g        = _update_g(g, k, r_new, new_a, dra)
@@ -243,16 +253,10 @@ function _fast_burg!(mesa::MESA, data::Vector, mmax::Int,
         push!(P, P[end] * (1 - k * conj(k)))
 
         lv = loss_function(optimisation_method, P, new_a, N, i + 1)
-        push!(optimization, lv)
+        push!(optimization, real(lv))
 
-        has_nan = any(isnan, new_a)
-        if abs(k) > 1 || has_nan
-            @warn "Numerical stability issue at order $(i+1). Results may be unreliable."
-        end
-
-        if has_nan && !early_stop
-            idx = argmin(optimization)
-            break
+        if abs(real(k)) > 1
+            @warn "Reflection coefficient |k|=$(abs(real(k))) > 1 at order $(i+1). Results may be unreliable."
         end
         if ((i % 100 == 0 && i != 0) || i >= mmax - 1) && early_stop
             idx = argmin(optimization)
