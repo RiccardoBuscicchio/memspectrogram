@@ -1,15 +1,14 @@
 # Configuration for examples/gw170817_spectrogram.jl
 #
 # GW170817: first binary neutron star (BNS) merger, detected 2017-08-17.
-# Uses 32 s of GWOSC H1 cleaned strain around GW170817 (GPS 1187008866–1187008898).
-# The 'CLN' strain variant has a glitch subtracted to expose the BNS signal.
+# Uses 32 s of GWOSC H1 strain around GW170817 (GPS 1187008867–1187008899).
 #
 # Usage:
 #   julia --project=. examples/gw170817_spectrogram.jl \
 #       --config examples/configs/gw170817_spectrogram.toml
 
 # Data source (GWOSC open data portal)
-h1_url = "https://gwosc.org/s/events/GW170817/H-H1_LOSC_CLN_4_V1-1187008866-32.hdf5"
+h1_url = "https://gwosc.org/eventapi/html/GWTC-1-confident/GW170817/v3/H-H1_GWOSC_4KHZ_R1-1187008867-32.hdf5"
 
 # Bandpass filter — wider upper bound than GW150914 to capture the BNS chirp
 bp_low   = 20.0    # lower cut-off (Hz)
