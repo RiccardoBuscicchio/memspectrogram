@@ -1,0 +1,32 @@
+# Configuration for examples/gw150914_spectrogram.jl — FAST execution
+#
+# Uses the Fast Burg variant for speed.  The Fast method may produce NaN on a
+# small fraction of real interferometer segments; the script handles this
+# gracefully via the Memspectrum early-stop logic.
+#
+# Usage:
+#   julia --project=. examples/gw150914_spectrogram.jl \
+#       --config examples/configs/gw150914_spectrogram_fast.toml
+
+# Data source (LOSC tutorial repo on GitHub, no GWOSC account required)
+h1_url = "https://raw.githubusercontent.com/losc-tutorial/LOSC_Event_tutorial/master/H-H1_LOSC_4_V2-1126259446-32.hdf5"
+
+# Bandpass filter
+bp_low   = 20.0    # lower cut-off (Hz)
+bp_high  = 400.0   # upper cut-off (Hz)
+bp_order = 4       # Butterworth order
+
+# Memgram parameters — short segments for faster computation
+seg_len = 512      # samples per segment  (≈ 0.125 s at 4096 Hz)
+overlap = 0.95     # fractional segment overlap
+
+# Display window (seconds either side of GW150914 merger)
+t_window = 2.0
+
+# Display frequency range
+f_min = 20.0       # Hz
+f_max = 400.0      # Hz
+
+# AR model settings — Fast Burg algorithm
+optimisation_method = "FPE"
+method = "Fast"
