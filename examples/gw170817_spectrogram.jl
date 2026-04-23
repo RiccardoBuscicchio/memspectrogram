@@ -124,11 +124,10 @@ end
 _get(key, default) = args[key] !== nothing ? args[key] :
                      haskey(cfg, key)       ? cfg[key]  : default
 
-# GWOSC open data: H1 cleaned strain, 4096 Hz, 32 s around GW170817
-# The 'CLN' (cleaned) file has a glitch subtracted to expose the BNS signal.
+# GWOSC open data: H1 strain, 4 kHz, 32 s around GW170817
 const H1_URL = _get("h1_url",
-    "https://gwosc.org/s/events/GW170817/" *
-    "H-H1_LOSC_CLN_4_V1-1187008866-32.hdf5")
+    "https://gwosc.org/eventapi/html/GWTC-1-confident/GW170817/v3/" *
+    "H-H1_GWOSC_4KHZ_R1-1187008867-32.hdf5")
 const BP_LOW  = _get("bp_low",   20.0)
 const BP_HIGH = _get("bp_high",  1000.0)
 const BP_ORDER = _get("bp_order", 4)
@@ -147,7 +146,7 @@ const GPS_MERGE = 1187008882.4
 # 1.  Download GWOSC H1 cleaned strain data
 # ---------------------------------------------------------------------------
 
-h1_path = joinpath(tempdir(), "H-H1_LOSC_CLN_4_V1-1187008866-32.hdf5")
+h1_path = joinpath(tempdir(), "H-H1_GWOSC_4KHZ_R1-1187008867-32.hdf5")
 
 if !isfile(h1_path)
     println("Downloading H1 cleaned strain data from GWOSC …")
