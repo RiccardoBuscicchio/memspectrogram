@@ -58,6 +58,17 @@ f, psd = memspectrum(m, dt)                 # Memspectrum on sampling frequencie
 psd_custom = memspectrum(m, dt; frequencies=f_grid)  # on a custom grid
 ```
 
+### Build an AD-friendly PSD model and Fourier covariance matrix
+
+```julia
+m = MESA()
+solve!(m, data)
+
+psd_model = MESAPSD(m)
+freqs = [10.0, 20.0, 30.0]
+cov = frequency_covariance(psd_model, dt; frequencies=freqs)
+```
+
 ### Compute the Memgram (spectrogram)
 
 ```julia
@@ -131,6 +142,7 @@ Run the example scripts from the repository root:
 
 ```sh
 julia --project=. examples/toy_psd_estimate.jl
+julia --project=. examples/ar_covariance_ad.jl
 julia --project=. examples/toy_spectrogram.jl
 julia --project=. examples/chirp_spectrogram.jl
 julia --project=. examples/gw150914_spectrogram.jl

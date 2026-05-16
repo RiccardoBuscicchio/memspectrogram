@@ -154,7 +154,7 @@ real scalar type supported by Julia AD packages, such as `ForwardDiff.Dual`.
 The coefficients follow the same convention as `MESA`: `a_k[1] = 1` and
 
 ```math
-x_t = -\sum_{k=1}^{p} a_k[k+1] \, x_{t-k} + \sqrt{P}\,\varepsilon_t,
+x_t = -\\sum_{k=1}^{p} a_k[k+1] \\, x_{t-k} + \\sqrt{P}\\,\\varepsilon_t,
 ```
 
 with `\varepsilon_t ~ N(0, 1)`.
@@ -602,7 +602,7 @@ end
 Compute the covariance matrix of the discrete Fourier coefficients
 
 ```math
-X(f_i) = \Delta t \sum_{n=0}^{N-1} x_n e^{-2\pi i f_i n \Delta t}
+X(f_i) = \\Delta t \\sum_{n=0}^{N-1} x_n e^{-2\\pi i f_i n \\Delta t}
 ```
 
 for finite-length realisations `x` of the AR(p) process defined by `m`.
