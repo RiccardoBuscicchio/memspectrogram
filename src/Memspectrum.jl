@@ -171,8 +171,8 @@ function MESAPSD(P::Real, a_k::AbstractVector{<:Real}, N::Int;
     N >= 1 || error("N must be at least 1.")
     value_type = promote_type(typeof(P), eltype(a_k), typeof(mu))
     coeffs = value_type.(vec(a_k))
-    isempty(coeffs) && error("a_k must contain at least the leading coefficient.")
-    coeffs[1] == one(value_type) || error("a_k must satisfy a_k[1] == 1.")
+    isempty(coeffs) && error("a_k must be non-empty.")
+    coeffs[1] == one(value_type) || error("The first coefficient a_k[1] must equal 1.")
     return MESAPSD{value_type}(value_type(P), coeffs, N, value_type(mu))
 end
 
@@ -626,7 +626,7 @@ function frequency_covariance(mesa::MESAPSD, dt::Real=1.0;
     n_freq = length(freq_grid)
     n_freq >= 1 || error("Need at least one frequency to compute a covariance matrix.")
 
-    burnin_steps = burnin === nothing ? max(10 * mesa.p, mesa.p) : burnin
+    burnin_steps = burnin === nothing ? 10 * mesa.p : burnin
     total = mesa.N + burnin_steps
     zero_innovations = zeros(Float64, total)
     jacobian = ForwardDiff.jacobian(
