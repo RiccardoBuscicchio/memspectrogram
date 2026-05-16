@@ -169,11 +169,11 @@ end
 function MESAPSD(P::Real, a_k::AbstractVector{<:Real}, N::Int;
                  mu::Real=zero(promote_type(typeof(P), eltype(a_k))))
     N >= 1 || error("N must be at least 1.")
-    T = promote_type(typeof(P), eltype(a_k), typeof(mu))
-    coeffs = T.(vec(a_k))
+    value_type = promote_type(typeof(P), eltype(a_k), typeof(mu))
+    coeffs = value_type.(vec(a_k))
     isempty(coeffs) && error("a_k must contain at least the leading coefficient.")
-    coeffs[1] == one(T) || error("a_k must satisfy a_k[1] == 1.")
-    return MESAPSD{T}(T(P), coeffs, N, T(mu))
+    coeffs[1] == one(value_type) || error("a_k must satisfy a_k[1] == 1.")
+    return MESAPSD{value_type}(value_type(P), coeffs, N, value_type(mu))
 end
 
 function MESAPSD(mesa::MESA)
@@ -212,17 +212,17 @@ function _onesided_frequency_grid(N::Int, dt::Real)
 end
 
 function _psd_at_frequency(P::Real, a_k::AbstractVector{<:Real}, dt::Real, frequency::Real)
-    T = promote_type(typeof(P), eltype(a_k), typeof(dt), typeof(frequency))
-    phase_scale = T(2π) * T(dt) * T(frequency)
-    re = one(T)
-    im_part = zero(T)
+    value_type = promote_type(typeof(P), eltype(a_k), typeof(dt), typeof(frequency))
+    phase_scale = value_type(2π) * value_type(dt) * value_type(frequency)
+    real_part = one(value_type)
+    imag_part = zero(value_type)
     for k in 1:length(a_k)-1
         phase = phase_scale * k
         coeff = a_k[k + 1]
-        re += coeff * cos(phase)
-        im_part += coeff * sin(phase)
+        real_part += coeff * cos(phase)
+        imag_part += coeff * sin(phase)
     end
-    return T(dt) * T(P) / (re^2 + im_part^2)
+    return value_type(dt) * value_type(P) / (real_part^2 + imag_part^2)
 end
 
 function _psd_on_grid(P::Real, a_k::AbstractVector{<:Real}, dt::Real,
@@ -555,9 +555,9 @@ function _simulate_ar_process(mesa::MESAPSD, innovations::AbstractVector{<:Real}
     length(innovations) == total ||
         error("Need $(total) innovations for an AR($(mesa.p)) process with burnin=$burnin.")
 
-    T = promote_type(eltype(innovations), typeof(mesa.P), eltype(mesa.a_k))
-    x = zeros(T, total)
-    sigma = sqrt(T(mesa.P))
+    value_type = promote_type(eltype(innovations), typeof(mesa.P), eltype(mesa.a_k))
+    x = zeros(value_type, total)
+    sigma = sqrt(value_type(mesa.P))
     for t in 1:total
         value = sigma * innovations[t]
         for k in 1:min(mesa.p, t - 1)
@@ -573,19 +573,19 @@ function _frequency_realisation_parts(mesa::MESAPSD, dt::Real,
                                       innovations::AbstractVector{<:Real},
                                       burnin::Int)
     x = _simulate_ar_process(mesa, innovations, burnin)
-    T = promote_type(eltype(x), typeof(dt), eltype(frequencies))
+    value_type = promote_type(eltype(x), typeof(dt), eltype(frequencies))
     n_freq = length(frequencies)
-    re = zeros(T, n_freq)
-    im_part = zeros(T, n_freq)
+    real_part = zeros(value_type, n_freq)
+    imag_part = zeros(value_type, n_freq)
     for (j, frequency) in enumerate(frequencies)
         for n in eachindex(x)
-            phase = T(2π) * T(frequency) * T(dt) * (n - 1)
-            value = x[n] * T(dt)
-            re[j] += value * cos(phase)
-            im_part[j] -= value * sin(phase)
+            phase = value_type(2π) * value_type(frequency) * value_type(dt) * (n - 1)
+            value = x[n] * value_type(dt)
+            real_part[j] += value * cos(phase)
+            imag_part[j] -= value * sin(phase)
         end
     end
-    return vcat(re, im_part)
+    return vcat(real_part, imag_part)
 end
 
 function _complex_covariance_from_real_imag(cov_real_imag::AbstractMatrix, n_freq::Int)
@@ -628,10 +628,10 @@ function frequency_covariance(mesa::MESAPSD, dt::Real=1.0;
 
     burnin_steps = burnin === nothing ? max(10 * mesa.p, mesa.p) : burnin
     total = mesa.N + burnin_steps
-    innovations = zeros(Float64, total)
+    zero_innovations = zeros(Float64, total)
     jacobian = ForwardDiff.jacobian(
         ε -> _frequency_realisation_parts(mesa, dt, freq_grid, ε, burnin_steps),
-        innovations,
+        zero_innovations,
     )
     cov_real_imag = jacobian * jacobian'
     covariance = _complex_covariance_from_real_imag(cov_real_imag, n_freq)
