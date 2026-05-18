@@ -18,6 +18,22 @@ julia --project=. examples/toy_psd_estimate.jl
 
 ---
 
+## AD covariance of AR(p) Fourier coefficients
+
+Builds an `MESAPSD` model, computes the theoretical covariance matrix
+`Cov(X(f_i), X(f_j))` with `frequency_covariance`, and compares it with the
+sample covariance obtained from many simulated AR(p) realisations.
+
+```sh
+julia --project=. examples/ar_covariance_ad.jl
+# or with a config file:
+julia --project=. examples/ar_covariance_ad.jl --config examples/configs/ar_covariance_ad.toml
+```
+
+The script saves the comparison plot to `examples/ar_covariance_ad.png`.
+
+---
+
 ## Toy Memgram
 
 Generates a non-stationary AR(2) signal and computes the Memgram.

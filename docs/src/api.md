@@ -4,6 +4,7 @@
 
 ```@docs
 MESA
+MESAPSD
 solve!
 ```
 
@@ -12,6 +13,7 @@ solve!
 ```@docs
 spectrum
 memspectrum
+frequency_covariance
 ```
 
 ## Memgram — Spectrogram

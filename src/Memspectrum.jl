@@ -32,6 +32,7 @@ module Memspectrum
 
 using FFTW
 using DSP
+using ForwardDiff
 using LinearAlgebra
 using Statistics
 using Random
@@ -39,7 +40,8 @@ using Interpolations
 using DelimitedFiles
 using Plots
 
-export MESA, solve!, spectrum, memspectrum, forecast, whiten, entropy_rate, logL,
+export MESA, MESAPSD, solve!, spectrum, memspectrum, frequency_covariance,
+       fourier_covariance, forecast, whiten, entropy_rate, logL,
        generate_data, save_mesa, load_mesa,
        mesa_spectrogram, memgram, plot_spectrogram,
        MemgramOnline, OnlineMemgramProcessor, start_processor, push_chunk!, close_processor!
@@ -140,6 +142,48 @@ mutable struct MESA
 end
 
 """
+    MESAPSD(P, a_k, N; mu=zero(promote_type(typeof(P), eltype(a_k))))
+    MESAPSD(m::MESA)
+
+Lightweight autoregressive PSD model meant for automatic differentiation.
+
+`MESAPSD` stores the innovation variance `P`, the autoregressive coefficients
+`a_k`, the process length `N`, and the mean `mu`. Unlike `MESA`, it accepts any
+real scalar type supported by Julia AD packages, such as `ForwardDiff.Dual`.
+
+The coefficients follow the same convention as `MESA`: `a_k[1] = 1` and
+
+```math
+x_t = -\\sum_{k=1}^{p} a_k[k+1] \\, x_{t-k} + \\sqrt{P}\\,\\varepsilon_t,
+```
+
+with `\varepsilon_t ~ N(0, 1)`.
+"""
+struct MESAPSD{T<:Real}
+    P::T
+    a_k::Vector{T}
+    N::Int
+    mu::T
+end
+
+function MESAPSD(P::Real, a_k::AbstractVector{<:Real}, N::Int;
+                 mu::Real=zero(promote_type(typeof(P), eltype(a_k))))
+    N >= 1 || error("N must be at least 1.")
+    value_type = promote_type(typeof(P), eltype(a_k), typeof(mu))
+    coeffs = value_type.(vec(a_k))
+    isempty(coeffs) && error("a_k must be non-empty.")
+    coeffs[1] == one(value_type) || error("The first coefficient a_k[1] must equal 1.")
+    return MESAPSD{value_type}(value_type(P), coeffs, N, value_type(mu))
+end
+
+function MESAPSD(mesa::MESA)
+    (mesa.P === nothing || mesa.a_k === nothing || mesa.N === nothing) &&
+        error("Model not fitted. Call solve! first.")
+    mu = mesa.mu === nothing ? zero(eltype(mesa.a_k)) : mesa.mu
+    return MESAPSD(real(mesa.P), real.(mesa.a_k), mesa.N; mu=real(mu))
+end
+
+"""
     p(m::MESA) -> Int
 
 Return the autoregressive order of the fitted model.
@@ -149,9 +193,42 @@ function Base.getproperty(m::MESA, s::Symbol)
     return getfield(m, s)
 end
 
+function Base.getproperty(m::MESAPSD, s::Symbol)
+    s == :p && return length(m.a_k) - 1
+    return getfield(m, s)
+end
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+function _frequency_grid(N::Int, dt::Real)
+    return [(k <= N ÷ 2 ? k : k - N) / (N * dt) for k in 0:N-1]
+end
+
+function _onesided_frequency_grid(N::Int, dt::Real)
+    half = N ÷ 2
+    return collect(0:half-1) ./ (N * dt)
+end
+
+function _psd_at_frequency(P::Real, a_k::AbstractVector{<:Real}, dt::Real, frequency::Real)
+    value_type = promote_type(typeof(P), eltype(a_k), typeof(dt), typeof(frequency))
+    phase_scale = value_type(2π) * value_type(dt) * value_type(frequency)
+    real_part = one(value_type)
+    imag_part = zero(value_type)
+    for k in 1:length(a_k)-1
+        phase = phase_scale * k
+        coeff = a_k[k + 1]
+        real_part += coeff * cos(phase)
+        imag_part += coeff * sin(phase)
+    end
+    return value_type(dt) * value_type(P) / (real_part^2 + imag_part^2)
+end
+
+function _psd_on_grid(P::Real, a_k::AbstractVector{<:Real}, dt::Real,
+                      frequencies::AbstractVector{<:Real})
+    return [_psd_at_frequency(P, a_k, dt, f) for f in frequencies]
+end
 
 function _update_prediction_coefficient(x::Vector, k)
     new_x = vcat(x, zero(eltype(x)))
@@ -439,6 +516,133 @@ function spectrum(mesa::MESA, dt::Float64=1.0;
         error("'frequencies' must be nothing or a Vector.")
     end
 end
+
+"""
+    spectrum(m::MESAPSD, dt=1.0; frequencies=nothing, onesided=false)
+
+Compute the power spectral density of an AD-friendly `MESAPSD` model.
+
+This method uses the closed-form AR denominator instead of an FFT, so it can be
+used with scalar types supported by automatic differentiation.
+"""
+function spectrum(mesa::MESAPSD, dt::Real=1.0;
+                  frequencies::Union{AbstractVector, Nothing}=nothing,
+                  onesided::Bool=false)
+    f_ny = 0.5 / dt
+
+    if frequencies === nothing
+        if onesided
+            f_spec = _onesided_frequency_grid(mesa.N, dt)
+            return f_spec, _psd_on_grid(mesa.P, mesa.a_k, dt, f_spec) .* 2
+        else
+            f_spec = _frequency_grid(mesa.N, dt)
+            return f_spec, _psd_on_grid(mesa.P, mesa.a_k, dt, f_spec)
+        end
+    elseif frequencies isa AbstractVector
+        if maximum(frequencies) > f_ny * 1.01
+            @warn "Some requested frequencies exceed Nyquist ($f_ny Hz): returning PSD on the requested grid."
+        end
+        return _psd_on_grid(mesa.P, mesa.a_k, dt, frequencies)
+    else
+        error("'frequencies' must be nothing or a Vector.")
+    end
+end
+
+function _simulate_ar_process(mesa::MESAPSD, innovations::AbstractVector{<:Real},
+                              burnin::Int)
+    burnin >= 0 || error("burnin must be non-negative.")
+    total = mesa.N + burnin
+    length(innovations) == total ||
+        error("Need $(total) innovations for an AR($(mesa.p)) process with burnin=$burnin.")
+
+    value_type = promote_type(eltype(innovations), typeof(mesa.P), eltype(mesa.a_k))
+    x = zeros(value_type, total)
+    sigma = sqrt(value_type(mesa.P))
+    for t in 1:total
+        value = sigma * innovations[t]
+        for k in 1:min(mesa.p, t - 1)
+            value -= mesa.a_k[k + 1] * x[t - k]
+        end
+        x[t] = value
+    end
+    return x[burnin+1:end]
+end
+
+function _frequency_realisation_parts(mesa::MESAPSD, dt::Real,
+                                      frequencies::AbstractVector{<:Real},
+                                      innovations::AbstractVector{<:Real},
+                                      burnin::Int)
+    x = _simulate_ar_process(mesa, innovations, burnin)
+    value_type = promote_type(eltype(x), typeof(dt), eltype(frequencies))
+    n_freq = length(frequencies)
+    real_part = zeros(value_type, n_freq)
+    imag_part = zeros(value_type, n_freq)
+    for (j, frequency) in enumerate(frequencies)
+        for n in eachindex(x)
+            phase = value_type(2π) * value_type(frequency) * value_type(dt) * (n - 1)
+            value = x[n] * value_type(dt)
+            real_part[j] += value * cos(phase)
+            imag_part[j] -= value * sin(phase)
+        end
+    end
+    return vcat(real_part, imag_part)
+end
+
+function _complex_covariance_from_real_imag(cov_real_imag::AbstractMatrix, n_freq::Int)
+    rr = cov_real_imag[1:n_freq, 1:n_freq]
+    ri = cov_real_imag[1:n_freq, n_freq+1:end]
+    ir = cov_real_imag[n_freq+1:end, 1:n_freq]
+    ii = cov_real_imag[n_freq+1:end, n_freq+1:end]
+    return complex.(rr + ii, ir - ri)
+end
+
+"""
+    frequency_covariance(m, dt=1.0; frequencies=nothing, onesided=true, burnin=nothing)
+
+Compute the covariance matrix of the discrete Fourier coefficients
+
+```math
+X(f_i) = \\Delta t \\sum_{n=0}^{N-1} x_n e^{-2\\pi i f_i n \\Delta t}
+```
+
+for finite-length realisations `x` of the AR(p) process defined by `m`.
+
+The covariance is obtained by automatic differentiation of the map from
+independent standard-normal innovations to the complex Fourier coefficients,
+using the model innovation variance `m.P` and AR coefficients `m.a_k`.
+
+When `frequencies === nothing`, the default grid is the standard one associated
+with a length-`N` DFT; `onesided=true` returns the positive-frequency block.
+"""
+function frequency_covariance(mesa::MESAPSD, dt::Real=1.0;
+                              frequencies::Union{AbstractVector, Nothing}=nothing,
+                              onesided::Bool=true,
+                              burnin::Union{Int, Nothing}=nothing)
+    freq_grid = frequencies === nothing ?
+                (onesided ? _onesided_frequency_grid(mesa.N, dt) :
+                            _frequency_grid(mesa.N, dt)) :
+                collect(frequencies)
+
+    n_freq = length(freq_grid)
+    n_freq >= 1 || error("Need at least one frequency to compute a covariance matrix.")
+
+    burnin_steps = burnin === nothing ? 10 * mesa.p : burnin
+    total = mesa.N + burnin_steps
+    zero_innovations = zeros(Float64, total)
+    jacobian = ForwardDiff.jacobian(
+        ε -> _frequency_realisation_parts(mesa, dt, freq_grid, ε, burnin_steps),
+        zero_innovations,
+    )
+    cov_real_imag = jacobian * jacobian'
+    covariance = _complex_covariance_from_real_imag(cov_real_imag, n_freq)
+    return frequencies === nothing ? (freq_grid, covariance) : covariance
+end
+
+function frequency_covariance(mesa::MESA, dt::Real=1.0; kwargs...)
+    return frequency_covariance(MESAPSD(mesa), dt; kwargs...)
+end
+
+const fourier_covariance = frequency_covariance
 
 """
     forecast(m::MESA, data, length; number_of_simulations=1,
@@ -802,4 +1006,3 @@ include("MemgramOnline.jl")
 using .MemgramOnline
 
 end # module
-

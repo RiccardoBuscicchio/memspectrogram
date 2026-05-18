@@ -11,6 +11,8 @@ or via the package manager:
 """
 
 using Test
+using ForwardDiff
+using LinearAlgebra
 using Random
 using Statistics
 
@@ -21,6 +23,42 @@ if !isdefined(Main, :Memspectrum)
 end
 using .Memspectrum
 using .Memspectrum.MemgramOnline
+
+function empirical_fourier_covariance(model::MESAPSD, dt::Float64,
+                                      frequencies::AbstractVector{<:Real};
+                                      realizations::Int,
+                                      burnin::Int,
+                                      seed::Int)
+    Random.seed!(seed)
+    n_freq = length(frequencies)
+    samples = Matrix{ComplexF64}(undef, realizations, n_freq)
+    sigma = sqrt(model.P)
+
+    for r in 1:realizations
+        x_full = zeros(Float64, model.N + burnin)
+        for t in eachindex(x_full)
+            value = sigma * randn()
+            for k in 1:min(model.p, t - 1)
+                value -= model.a_k[k + 1] * x_full[t - k]
+            end
+            x_full[t] = value
+        end
+        x = x_full[burnin+1:end]
+        for (j, frequency) in enumerate(frequencies)
+            coeff = zero(ComplexF64)
+            for n in eachindex(x)
+                phase = -2π * frequency * dt * (n - 1)
+                coeff += dt * x[n] * cis(phase)
+            end
+            samples[r, j] = coeff
+        end
+    end
+
+    sample_mean = vec(mean(samples; dims=1))
+    centered = samples .- sample_mean'
+    covariance = centered' * centered / (realizations - 1)
+    return covariance
+end
 
 @testset "Memspectrum.jl" begin
 
@@ -203,6 +241,66 @@ using .Memspectrum.MemgramOnline
         # a generous but realistic tolerance for N=4096 and high-noise AR(2).
         true_peak = acos(-a1 / (2 * sqrt(a2))) / (2π * dt)
         @test abs(f[argmax(psd)] - true_peak) < 10.0
+    end
+
+    # -----------------------------------------------------------------------
+    @testset "MESAPSD supports AD and matches MESA spectrum" begin
+        Random.seed!(12)
+        x = randn(512)
+        dt = 1.0 / 256.0
+
+        m = MESA()
+        solve!(m, x; verbose=false)
+
+        psd_model = MESAPSD(m)
+        f_fit, psd_fit = spectrum(m, dt; onesided=true)
+        f_ad, psd_ad = spectrum(psd_model, dt; onesided=true)
+
+        @test psd_model.P ≈ m.P
+        @test psd_model.a_k ≈ m.a_k
+        @test psd_model.N == m.N
+        @test f_fit ≈ f_ad
+        @test psd_fit ≈ psd_ad atol=1e-10
+
+        theta0 = vcat(psd_model.P, psd_model.a_k[2:end])
+        freqs = [10.0, 30.0, 50.0]
+        objective(θ) = begin
+            coeffs = vcat(one(eltype(θ)), θ[2:end])
+            model = MESAPSD(θ[1], coeffs, psd_model.N)
+            sum(spectrum(model, dt; frequencies=freqs))
+        end
+        gradient = ForwardDiff.gradient(objective, theta0)
+        @test length(gradient) == length(theta0)
+        @test all(isfinite, gradient)
+    end
+
+    # -----------------------------------------------------------------------
+    @testset "frequency_covariance matches empirical AR(p) covariance" begin
+        dt = 1.0 / 128.0
+        model = MESAPSD(1.0, [1.0, -1.5, 0.9], 32)
+        freqs = collect((0:4:12) ./ (model.N * dt))
+        burnin = 128
+
+        cov_theory = frequency_covariance(model, dt; frequencies=freqs, burnin=burnin)
+        cov_empirical = empirical_fourier_covariance(
+            model,
+            dt,
+            freqs;
+            realizations=4000,
+            burnin=burnin,
+            seed=13,
+        )
+
+        diag_theory = real.(diag(cov_theory))
+        diag_empirical = real.(diag(cov_empirical))
+        rel_diag_error = maximum(abs.(diag_empirical .- diag_theory) ./ diag_theory)
+        offdiag_diff = copy(cov_empirical .- cov_theory)
+        offdiag_diff[diagind(offdiag_diff)] .= 0
+        offdiag_error = maximum(abs.(offdiag_diff))
+        scale = maximum(diag_theory)
+
+        @test rel_diag_error < 0.12
+        @test offdiag_error / scale < 0.08
     end
 
     # -----------------------------------------------------------------------

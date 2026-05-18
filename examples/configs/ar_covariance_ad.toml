@@ -1,0 +1,10 @@
+N = 64
+dt = 0.0078125
+P = 1.0
+a1 = -1.5
+a2 = 0.9
+burnin = 256
+realizations = 4000
+seed = 21
+frequency_step = 4
+max_bin = 20
