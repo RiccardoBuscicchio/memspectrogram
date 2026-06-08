@@ -34,6 +34,7 @@ using ArgParse
 using TOML
 using Random
 using Plots
+using BenchmarkTools
 
 # CUDA is loaded conditionally so the script also runs on CPU-only machines.
 const HAVE_CUDA = try
@@ -191,6 +192,22 @@ println("  Time range:  $(round(t_centers[1]/86400, digits=2)) – " *
         "$(round(t_centers[end]/86400, digits=2)) days")
 println("  Freq range:  $(round(f_grid[1],  sigdigits=3)) – " *
         "$(round(f_grid[end], sigdigits=3)) Hz")
+
+
+bench = @benchmark memgram(
+    x, DT;
+    segment_length      = SEG_LEN,
+    overlap             = OVERLAP,
+    optimisation_method = OPT_METHOD,
+    method              = METHOD,
+    verbose             = true,
+    use_gpu             = USE_GPU && HAVE_CUDA,
+)
+
+println("Min:    ", minimum(bench))
+println("Median: ", median(bench))
+println("Max:    ", maximum(bench))
+
 
 # ---------------------------------------------------------------------------
 # 3.  Plot and save
