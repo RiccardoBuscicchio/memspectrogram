@@ -16,6 +16,12 @@ memspectrum
 frequency_covariance
 ```
 
+## Irregularly sampled data
+
+`solve!(m, times, data; ...)` and `mesa_spectrogram(times, x; ...)` (alias
+`memgram`) implement the Burg algorithm for irregularly sampled data; see their
+docstrings above and below.
+
 ## Memgram — Spectrogram
 
 ```@docs

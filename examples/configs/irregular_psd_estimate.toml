@@ -1,0 +1,12 @@
+# Configuration for examples/irregular_psd_estimate.jl
+#
+# Usage:
+#   julia --project=. examples/irregular_psd_estimate.jl --config examples/configs/irregular_psd_estimate.toml
+#
+# All keys are optional; command-line flags override these values.
+
+N_dense       = 400000   # samples of the dense underlying AR(2) series
+keep_fraction = 0.05     # probability of keeping each dense sample (λ = 0.05)
+dt_factor     = 1.0      # AR grid spacing T in units of 1/λ
+seed          = 42
+penalty       = 4.0      # AICirreg penalty α (paper uses 4)

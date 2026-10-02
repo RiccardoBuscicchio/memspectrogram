@@ -18,6 +18,22 @@ julia --project=. examples/toy_psd_estimate.jl
 
 ---
 
+## Irregularly sampled PSD estimate
+
+Thins a densely sampled AR(2) series to ~5% of its points (exponential gaps),
+then fits AR models directly to the irregular data with the Burg algorithm of
+Bos, de Waele & Broersen (2002) for two slot widths.
+
+```sh
+julia --project=. examples/irregular_psd_estimate.jl
+# or with a config file:
+julia --project=. examples/irregular_psd_estimate.jl --config examples/configs/irregular_psd_estimate.toml
+```
+
+![Irregular PSD estimate](assets/irregular_psd_estimate.png)
+
+---
+
 ## AD covariance of AR(p) Fourier coefficients
 
 Builds an `MESAPSD` model, computes the theoretical covariance matrix
