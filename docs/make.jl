@@ -5,7 +5,8 @@ using Memspectrum
 let assets_dir = joinpath(@__DIR__, "src", "assets")
     mkpath(assets_dir)
     for img in ["toy_psd_estimate.png", "toy_spectrogram.png",
-                "chirp_spectrogram.png", "quadratic_chirp_spectrogram.png"]
+                "chirp_spectrogram.png", "quadratic_chirp_spectrogram.png",
+                "irregular_psd_estimate.png"]
         src = joinpath(@__DIR__, "..", "examples", img)
         dst = joinpath(assets_dir, img)
         if isfile(src)
@@ -26,6 +27,8 @@ makedocs(
     ),
     pages = [
         "Home"     => "index.md",
+        "Irregular sampling" => "irregular.md",
+        "GPU"      => "gpu.md",
         "API"      => "api.md",
         "Examples" => "examples.md",
     ],

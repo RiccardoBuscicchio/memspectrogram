@@ -426,4 +426,80 @@ end
         @test t_c[end] < T_total
     end
 
+    # -----------------------------------------------------------------------
+    @testset "Irregular Burg reduces to Burg on a regular grid" begin
+        Random.seed!(21)
+        x = randn(1000)
+        for t in 3:length(x)
+            x[t] += 1.2 * x[t-1] - 0.6 * x[t-2]
+        end
+        x .-= mean(x)
+
+        m_reg = MESA()
+        solve!(m_reg, x; method="Standard", optimisation_method="Fixed", m=8)
+        m_irr = MESA()
+        solve!(m_irr, collect(0.0:length(x)-1), x; dt=1.0, slot_width=0.5,
+               optimisation_method="Fixed", m=8)
+
+        @test m_irr.ref_coefficients ≈ m_reg.ref_coefficients atol=1e-12
+        @test m_irr.a_k ≈ m_reg.a_k atol=1e-12
+        @test m_irr.P ≈ m_reg.P
+        @test m_irr.n_products == [length(x) - p for p in 1:8]
+        @test m_irr.N == length(x)
+    end
+
+    # -----------------------------------------------------------------------
+    @testset "Irregular Burg recovers AR(2) peak" begin
+        # Densely sampled AR(2), randomly thinned to ~5% (exponential gaps)
+        Random.seed!(22)
+        f0, r = 0.01, 0.995
+        a1, a2 = -2r * cos(2π * f0), r^2
+        xf = zeros(200_000)
+        for t in 3:length(xf)
+            xf[t] = -a1 * xf[t-1] - a2 * xf[t-2] + randn()
+        end
+        keep = rand(length(xf)) .< 0.05
+        t = Float64.(findall(keep))
+        y = xf[keep]
+
+        # Unsorted input must give the same fit
+        perm = randperm(length(t))
+        m = MESA()
+        P, a_k, opt = solve!(m, t[perm], y[perm]; dt=20.0, slot_width=10.0)
+        m_sorted = MESA()
+        solve!(m_sorted, t, y; dt=20.0, slot_width=10.0)
+        @test m.a_k == m_sorted.a_k
+
+        @test m.p >= 2
+        @test all(abs.(m.ref_coefficients) .< 1)
+        @test issorted(m.n_products; rev=true)
+        @test m.mu ≈ mean(y)
+
+        f, psd = spectrum(m, 20.0; onesided=true)
+        @test all(psd .> 0)
+        @test abs(f[argmax(psd)] - f0) < 0.002
+        # One-sided PSD integrates to the sample variance
+        @test sum(psd) * (f[2] - f[1]) ≈ var(y) rtol=0.01
+
+        # AICirreg rejects orders estimated from too few products
+        @test all(isinf, opt[m.n_products .< 15])
+    end
+
+    # -----------------------------------------------------------------------
+    @testset "Irregular memgram" begin
+        Random.seed!(23)
+        t = sort(rand(4000) .* 4000.0)
+        f_line = [tt < 2000 ? 0.05 : 0.15 for tt in t]
+        x = sin.(2π .* f_line .* t) .+ 0.3 .* randn(length(t))
+
+        tc, fg, S = memgram(t, x; dt=2.0, segment_duration=500.0, overlap=0.5)
+        @test size(S) == (125, length(tc))
+        @test length(fg) == 125
+        @test all(S .> 0)
+        @test tc[1] ≈ t[1] + 250.0
+        @test tc[end] <= t[end]
+        @test abs(fg[argmax(S[:, 1])] - 0.05) < 0.01
+        @test abs(fg[argmax(S[:, end])] - 0.15) < 0.01
+    end
+
 end # @testset "Memspectrum.jl"

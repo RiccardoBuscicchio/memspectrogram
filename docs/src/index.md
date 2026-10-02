@@ -67,6 +67,17 @@ t_centers, f_grid, psd_matrix = memgram(x, dt; segment_length=512)
 plt = plot_spectrogram(t_centers, f_grid, psd_matrix)
 ```
 
+### Irregularly sampled data
+
+```julia
+m = MESA()
+solve!(m, times, x; dt=1.0, slot_width=0.5)
+f, psd = memspectrum(m, 1.0; onesided=true)
+t_c, f_grid, S = memgram(times, x; dt=1.0, segment_duration=512.0)
+```
+
+See [Irregularly sampled data](irregular.md) for details.
+
 ### Forecast future observations
 
 ```julia
@@ -85,11 +96,16 @@ using Memspectrum
 
 t, f, S = memgram(x, dt; segment_length=512, use_gpu=true)
 sims = forecast(m, data, 1000; number_of_simulations=2048, use_gpu=true)
+solve!(m, times, x; dt=1.0, use_gpu=true)   # irregular data
 ```
+
+See [GPU acceleration](gpu.md) for setup, supported functions and performance.
 
 ---
 
 ## See also
 
+* [Irregularly sampled data](irregular.md)
+* [GPU acceleration](gpu.md)
 * [API reference](@ref "API Reference")
 * [Examples](@ref "Examples")

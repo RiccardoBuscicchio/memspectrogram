@@ -129,6 +129,8 @@ Fields set after calling `solve!`:
 - `a_k` – autoregressive (AR) coefficients (length p+1, with `a_k[1] = 1`)
 - `N`   – length of the time series used to fit the model
 - `mu`  – mean of the time series
+- `n_products` – products used for each reflection coefficient
+                 (irregular-sampling fits only, `nothing` otherwise)
 """
 mutable struct MESA
     P::Union{Float64, ComplexF64, Nothing}
@@ -137,8 +139,9 @@ mutable struct MESA
     mu::Union{Float64, ComplexF64, Nothing}
     ref_coefficients::Vector
     optimization::Union{Vector, Nothing}
+    n_products::Union{Vector{Int}, Nothing}
 
-    MESA() = new(nothing, nothing, nothing, nothing, Float64[], nothing)
+    MESA() = new(nothing, nothing, nothing, nothing, Float64[], nothing, nothing)
 end
 
 """
@@ -197,6 +200,19 @@ function Base.getproperty(m::MESAPSD, s::Symbol)
     s == :p && return length(m.a_k) - 1
     return getfield(m, s)
 end
+
+# ---------------------------------------------------------------------------
+# GPU hooks – methods are added by the CUDA extension (ext/MemspectrumCUDAExt.jl)
+# ---------------------------------------------------------------------------
+
+_gpu_unavailable() = error("use_gpu=true requires a functional CUDA.jl: run `using CUDA` first.")
+
+function _forecast_gpu end
+function _mesa_spectrogram_gpu end
+function _irregular_reflection_gpu end
+_forecast_gpu(args...; kwargs...) = _gpu_unavailable()
+_mesa_spectrogram_gpu(args...; kwargs...) = _gpu_unavailable()
+_irregular_reflection_gpu(args...; kwargs...) = _gpu_unavailable()
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -457,6 +473,7 @@ function solve!(mesa::MESA, data::AbstractVector;
     mesa.N   = N
     mesa.mu  = mean(data)
     mesa.ref_coefficients = Float64[]
+    mesa.n_products = nothing
 
     mmax = m === nothing ? Int(floor(2 * N / log(2 * N))) : m
     if optimisation_method == "Fixed"
@@ -671,6 +688,10 @@ function forecast(mesa::MESA, data::AbstractVector, len::Int;
                   use_gpu::Bool=false)
     (mesa.P === nothing || mesa.a_k === nothing) &&
         error("Model not fitted. Call solve! before forecast.")
+    use_gpu && return _forecast_gpu(mesa, data, len;
+                                    number_of_simulations=number_of_simulations,
+                                    P=P, include_data=include_data, seed=seed,
+                                    verbose=verbose)
 
     P_use = P === nothing ? mesa.P : P
     p     = length(mesa.a_k) - 1
@@ -897,6 +918,10 @@ function mesa_spectrogram(x::AbstractVector, dt::Float64;
         error("overlap must be in [0, 1).")
     segment_length >= 4 ||
         error("segment_length must be at least 4.")
+    use_gpu && return _mesa_spectrogram_gpu(x, dt; segment_length=segment_length,
+                                            overlap=overlap,
+                                            optimisation_method=optimisation_method,
+                                            method=method, verbose=verbose)
 
     x = Float64.(vec(x))
     N  = length(x)
@@ -980,6 +1005,8 @@ function plot_spectrogram(t_centers::AbstractVector, f_grid::AbstractVector,
         return heatmap(t_centers, f_grid, log_psd; kw...)
     end
 end
+
+include("BurgIrregular.jl")
 
 """
     memspectrum(m::MESA, dt=1.0; frequencies=nothing, onesided=false)
