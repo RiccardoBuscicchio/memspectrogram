@@ -192,6 +192,30 @@ Generate LIGO-like noise from the O3 design PSD:
 julia examples/generate_white_noise.jl --p 300 --t 32 --srate 4096
 ```
 
+## Building the documentation
+
+The documentation is built with [Documenter.jl](https://documenter.juliadocs.org)
+from `docs/`, the same way as in CI.  From the repository root, set up the
+docs environment once (this develops the local package into it):
+
+```sh
+julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+```
+
+Then build:
+
+```sh
+julia --project=docs docs/make.jl
+```
+
+Open `docs/build/index.html` in a browser.  Outside CI the deployment step
+is skipped, so nothing is pushed.
+
+`docs/make.jl` copies the example plots from `examples/*.png` into
+`docs/src/assets/`, overwriting the copies there.  Run the corresponding
+example scripts first if you want up-to-date figures, and only commit the
+copied images if you mean to update them.
+
 ## References
 
 - Original Burg's algorithm: [J.P. Burg – Maximum Entropy Spectral Analysis](http://sepwww.stanford.edu/data/media/public/oldreports/sep06/)
