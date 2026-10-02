@@ -27,6 +27,8 @@ makedocs(
     ),
     pages = [
         "Home"     => "index.md",
+        "Irregular sampling" => "irregular.md",
+        "GPU"      => "gpu.md",
         "API"      => "api.md",
         "Examples" => "examples.md",
     ],
